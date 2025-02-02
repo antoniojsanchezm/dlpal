@@ -19,7 +19,7 @@ You need to go to the [releases page](https://github.com/anventec/dlpal/releases
 
 ## To-do
 
-[ ] Supporting chapters
+- [ ] Supporting chapters
 
 ## Disclaimer
 
