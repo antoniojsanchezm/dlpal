@@ -156,8 +156,8 @@ function App() {
                           path: {
                             stroke: `rgba(${progress_colors[progressColor]}, 1)`
                           }
-                        }} value={progressValue}>
-                          <span>{parseInt(progressValue)}%</span>
+                        }} value={(progressValue < 0) ? 0 : progressValue}>
+                          <span>{(progressValue < 0) ? 0 : progressValue.toFixed(0)}%</span>
                           <span className="text-xs">{progressAction}</span>
                         </CircularProgressbarWithChildren>
                       </div>

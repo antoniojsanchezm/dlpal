@@ -125,7 +125,6 @@ export function beginDownload(data, store, sender) {
 
     const finish = () => {
       sender("finish");
-      store.delete(video_id);
     };
 
     if (video_format && !audio_format) {
