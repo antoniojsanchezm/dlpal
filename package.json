@@ -1,7 +1,7 @@
 {
   "name": "dlpal",
   "version": "1.0.0",
-  "description": "An app made in Electron, React and Tailwind CSS for downloading YouTube long-format videos and shorts.",
+  "description": "Desktop app made in Electron, React and Tailwind CSS for downloading YouTube long-format videos and shorts.",
   "main": "./out/main/index.js",
   "author": "anventec",
   "homepage": "https://github.com/anventec/dlpal",

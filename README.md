@@ -1,6 +1,6 @@
 # DLPal
 
-An app made in Electron, React and Tailwind CSS for downloading YouTube long-format videos and shorts. Based on [@distube/ytdl-core](https://www.npmjs.com/package/@distube/ytdl-core).
+Desktop app made in Electron, React and Tailwind CSS for downloading YouTube long-format videos and shorts. Based on [@distube/ytdl-core](https://www.npmjs.com/package/@distube/ytdl-core).
 
 ## Installation
 
