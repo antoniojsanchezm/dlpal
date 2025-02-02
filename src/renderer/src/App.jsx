@@ -1,4 +1,6 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormControlLabel, FormGroup, FormLabel, InputLabel, LinearProgress, MenuItem, Select, Switch, TextField } from '@mui/material';
+import { faBox, faCut, faDownload, faFileDownload, faLink, faRepeat, faScroll, faVideo, faVolumeHigh } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormControlLabel, FormGroup, InputLabel, LinearProgress, MenuItem, Select, Switch, TextField } from '@mui/material';
 import getVideoId from 'get-video-id';
 import { useEffect, useReducer, useState } from 'react';
 import { CircularProgressbarWithChildren } from 'react-circular-progressbar';
@@ -6,7 +8,7 @@ import 'react-circular-progressbar/dist/styles.css';
 
 const dataFetchErrors = {
   EMPTY_URL: "The URL can not be empty",
-  WRONG_SERVICE: "DLPal only works with YouTube videos"
+  WRONG_SERVICE: "dlpal only works with YouTube videos"
 };
 
 const dataFetchTypes = {
@@ -105,13 +107,17 @@ function App() {
       <div className="p-8">
         <div className="flex flex-col gap-5">
           <div>
-            <span className="text-3xl">DLPal</span>
+            <span className="text-3xl">dlpal</span>
           </div>
           <div className="flex items-center gap-5 w-full mt-1">
-            <TextField className="w-3/5" size="small" label="Video URL" variant="outlined" error={dataFetchState.url.error} helperText={dataFetchState.url.helperText} value={dataFetchState.url.input} onChange={(e) => dataFetchDispatch({
+            <TextField className="w-3/5" size="small" label={(
+              <>
+                <FontAwesomeIcon icon={faLink} />&nbsp;Video URL
+              </>
+            )} variant="outlined" error={dataFetchState.url.error} helperText={dataFetchState.url.helperText} value={dataFetchState.url.input} onChange={(e) => dataFetchDispatch({
               type: dataFetchTypes.SET_URL,
               input: e.target.value
-            })} disabled={downloading || videoData} />
+            })} disabled={downloading || Boolean(videoData)} />
             <Button variant="contained" className={`${(dataFetchState.url.error) ? "invisible" : ""}`} loading={dataFetchState.loading} onClick={() => {
               dataFetchDispatch({
                 type: dataFetchTypes.ON_LOADING
@@ -127,7 +133,7 @@ function App() {
 
                 setVideoData(data);
               });
-            }} disabled={downloading || videoData}>Fetch data</Button>
+            }} disabled={downloading || Boolean(videoData)}><FontAwesomeIcon icon={faDownload} />&nbsp;Fetch data</Button>
             {(videoData) ? (
               <Button variant="contained" color="error" onClick={async () => {
                 await window.api.clearStore();
@@ -138,7 +144,7 @@ function App() {
                 });
 
                 setVideoData(null);
-              }} disabled={downloading}>Reset</Button>
+              }} disabled={downloading}><FontAwesomeIcon icon={faRepeat} />&nbsp;Reset</Button>
             ) : ""}
           </div>
           {
@@ -146,7 +152,7 @@ function App() {
               <div>
                 <div className="grid grid-cols-4">
                   <div className="col-span-3">
-                    <span className="text-lg">{videoData.title}</span>
+                    <span className="text-lg"><FontAwesomeIcon icon={faScroll} />&nbsp;{videoData.title}</span>
                     <img className="h-48 rounded-lg mt-2" src={videoData.thumbnail} />
                   </div>
                   {(downloading) ? (
@@ -168,32 +174,32 @@ function App() {
                   <div className="flex flex-col gap-4 mt-6">
                     {(getVideo) ? (
                       <FormControl>
-                        <InputLabel id="video-quality">Video quality</InputLabel>
+                        <InputLabel id="video-quality"><FontAwesomeIcon icon={faVideo} />&nbsp;Video quality</InputLabel>
                         <Select
                           labelId="video-quality"
-                          label="Video quality"
+                          label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Video quality"
                           value={selectedVideoFormat}
                           onChange={(e) => setSelectedVideoFormat(e.target.value)}
                           disabled={downloading}
                         >
                           {videoData.formats.video.map((f) => (
-                            <MenuItem value={f.id}>{f.label}</MenuItem>
+                            <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>
                           ))}
                         </Select>
                       </FormControl>
                     ) : ""}
                     {(getAudio) ? (
                       <FormControl>
-                        <InputLabel id="audio-quality">Audio quality</InputLabel>
+                        <InputLabel id="audio-quality"><FontAwesomeIcon icon={faVolumeHigh} />&nbsp;Audio quality</InputLabel>
                         <Select
                           labelId="audio-quality"
-                          label="Audio quality"
+                          label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Audio quality"
                           value={selectedAudioFormat}
                           onChange={(e) => setSelectedAudioFormat(e.target.value)}
                           disabled={downloading}
                         >
                           {videoData.formats.audio.map((f) => (
-                            <MenuItem value={f.id}>{f.label}</MenuItem>
+                            <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>
                           ))}
                         </Select>
                       </FormControl>
@@ -218,7 +224,7 @@ function App() {
                             await window.api.beginDownload(download_data);
                           }
                         });
-                      }} disabled={downloading}>BEGIN DOWNLOAD</Button>
+                      }} disabled={downloading}><FontAwesomeIcon icon={faFileDownload} />&nbsp;&nbsp;BEGIN DOWNLOAD</Button>
                     ) : ""}
                     {(downloading) ? (
                       <LinearProgress variant="determinate" color={progressColor} value={progressValue} />
@@ -226,11 +232,27 @@ function App() {
                   </div>
                   <div className="flex flex-col gap-4 mt-6">
                     <FormGroup>
-                      <FormControlLabel control={<Switch checked={getVideo} onChange={(e) => setGetVideo(e.target.checked)} disabled={downloading} />} label="Download video" />
-                      <FormControlLabel control={<Switch checked={getAudio} onChange={(e) => setGetAudio(e.target.checked)} disabled={downloading} />} label="Download audio" />
-                      <FormControlLabel control={<Switch checked={getMerge} onChange={(e) => setGetMerge(e.target.checked)} disabled={downloading} />} label="Merge video and audio" />
+                      <FormControlLabel control={<Switch checked={getVideo} onChange={(e) => setGetVideo(e.target.checked)} disabled={downloading} />} label={(
+                        <>
+                          <FontAwesomeIcon icon={faVideo} />&nbsp;Download video
+                        </>
+                      )} />
+                      <FormControlLabel control={<Switch checked={getAudio} onChange={(e) => setGetAudio(e.target.checked)} disabled={downloading} />} label={(
+                        <>
+                          <FontAwesomeIcon icon={faVolumeHigh} />&nbsp;Download video
+                        </>
+                      )} />
+                      <FormControlLabel control={<Switch checked={getMerge} onChange={(e) => setGetMerge(e.target.checked)} disabled={downloading} />} label={(
+                        <>
+                          <FontAwesomeIcon icon={faCut} />&nbsp;Merge video and audio
+                        </>
+                      )} />
                       {(getMerge) ? (
-                        <FormControlLabel control={<Switch checked={getKeep} onChange={(e) => setGetKeep(e.target.checked)} disabled={downloading} />} label="Keep separate files" />
+                        <FormControlLabel control={<Switch checked={getKeep} onChange={(e) => setGetKeep(e.target.checked)} disabled={downloading} />} label={(
+                          <>
+                            <FontAwesomeIcon icon={faBox} />&nbsp;Keep separate files
+                          </>
+                        )} />
                       ) : ""}
                     </FormGroup>
                   </div>
@@ -241,18 +263,20 @@ function App() {
         </div>
       </div>
       <div className="footer uncopyable pr-4 pb-4">
-        <span className="text-xs text-gray-500"><span className="text-red-500 hover:font-bold" onClick={() => setDisclaimerOpen(true)}>Disclaimer</span> - Developed by Anventec (Anven)</span>
+        <span className="text-xs text-gray-500"><span className="text-red-500 hover:font-bold" onClick={() => setDisclaimerOpen(true)}>Disclaimer</span> - <span className="hover:font-bold" onClick={async () => {
+          await window.api.openLink("https://github.com/anventec");
+        }}>Developed by Anventec (Anven)</span></span>
       </div>
       <Dialog open={disclaimerOpen} onClose={() => setDisclaimerOpen(false)}>
           <DialogTitle>Disclaimer</DialogTitle>
           <DialogContent>
             <DialogContentText>
             <ul>
-              <li>DLPal will not be held responsible for what end users do with downloaded content.</li>
-              <li className="mt-2">DLPal do not own nor claim to own the rights to any of the content that end users can download.</li>
-              <li className="mt-2">DLPal is not associated in any way with YouTube or Google LLC.</li>
+              <li>dlpal will not be held responsible for what end users do with downloaded content.</li>
+              <li className="mt-2">dlpal do not own nor claim to own the rights to any of the content that end users can download.</li>
+              <li className="mt-2">dlpal is not associated in any way with YouTube or Google LLC.</li>
               <li className="mt-2">YouTube is a registered trademark of Google LLC.</li>
-              <li className="mt-2">DLPal is still a work in progress. Bugs are expected.</li>
+              <li className="mt-2">dlpal is still a work in progress. Bugs are expected.</li>
             </ul>
             </DialogContentText>
           </DialogContent>

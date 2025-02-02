@@ -8,10 +8,11 @@ function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 900,
-    height: 700,
+    height: 720,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    resizable: false,
+    ...(["linux", "win32"].includes(process.platform) ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -76,7 +77,9 @@ app.whenReady().then(() => {
     else return filePaths[0];
   });
 
-  ipcMain.handle("clearStore", () => store.clear())
+  ipcMain.handle("clearStore", () => store.clear());
+
+  ipcMain.handle("openLink", (e, link) => shell.openExternal(link));
 
   // ---------------------
 

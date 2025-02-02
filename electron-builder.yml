@@ -11,6 +11,7 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
 asarUnpack:
   - resources/**
+  - node_modules/ffmpeg-static-electron/**
 win:
   executableName: dlpal
 nsis:
@@ -18,6 +19,9 @@ nsis:
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:

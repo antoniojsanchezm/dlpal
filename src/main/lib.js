@@ -4,7 +4,8 @@ import humanize from "humanize"
 import progress_stream from "progress-stream"
 import { v4 } from "uuid"
 import ffmpeg from "fluent-ffmpeg"
-import ffmpegPath from "ffmpeg-static"
+import ffmse from "ffmpeg-static-electron"
+import { join } from 'path'
 
 export const convertBits = (bits, fixed = 0, exact = false) => {
   const data = {
@@ -86,9 +87,7 @@ export function fetchVideoData(url, store) {
   })
 }
 
-function join(...args) {
-  return args.join("\\");
-}
+
 export function beginDownload(data, store, sender) {
   return new Promise((resolve, reject) => {
     const { video_id, title, save_path, video_format, audio_format, merge, keep_files } = data;
@@ -162,7 +161,7 @@ export function beginDownload(data, store, sender) {
             sender("progress", 0);
             sender("action", "Merge");
 
-            ffmpeg.setFfmpegPath(ffmpegPath.replace("app.asar", "app.asar.unpacked"));
+            ffmpeg.setFfmpegPath(ffmse.path.replace("app.asar", "app.asar.unpacked"));
 
             const merged_path = makeFilePath({ container: "mp4" });
 

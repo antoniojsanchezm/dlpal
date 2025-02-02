@@ -8,7 +8,8 @@ const api = {
   openDirectory: () => ipcRenderer.invoke("openDirectory"),
   beginDownload: (data) => ipcRenderer.invoke("beginDownload", data),
   listenToMain: (event, callback) => ipcRenderer.on(event, (e, ...args) => callback(...args)),
-  clearStore: () => ipcRenderer.invoke("clearStore")
+  clearStore: () => ipcRenderer.invoke("clearStore"),
+  openLink: (link) => ipcRenderer.invoke("openLink", link)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
