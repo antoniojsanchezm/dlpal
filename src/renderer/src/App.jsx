@@ -162,8 +162,8 @@ function App() {
                           path: {
                             stroke: `rgba(${progress_colors[progressColor]}, 1)`
                           }
-                        }} value={(progressValue < 0) ? 0 : progressValue}>
-                          <span>{(progressValue < 0) ? 0 : progressValue.toFixed(0)}%</span>
+                        }} value={(!progressValue || progressValue < 0) ? 0 : progressValue}>
+                          <span>{(!progressValue || progressValue < 0) ? 0 : progressValue.toFixed(0)}%</span>
                           <span className="text-xs">{progressAction}</span>
                         </CircularProgressbarWithChildren>
                       </div>
@@ -227,7 +227,7 @@ function App() {
                       }} disabled={downloading}><FontAwesomeIcon icon={faFileDownload} />&nbsp;&nbsp;BEGIN DOWNLOAD</Button>
                     ) : ""}
                     {(downloading) ? (
-                      <LinearProgress variant="determinate" color={progressColor} value={progressValue} />
+                      <LinearProgress variant="determinate" color={progressColor} value={(progressValue) ? progressValue : 0} />
                     ) : ""}
                   </div>
                   <div className="flex flex-col gap-4 mt-6">
