@@ -45,45 +45,52 @@ export const convertFileSize = (size) => {
 export function fetchVideoData(url, store) {
   return new Promise(async (resolve, reject) => {
     const video_id = ytdl.getVideoID(url);
-    const basic_info = await ytdl.getBasicInfo(url);
-    const extended_info = await ytdl.getInfo(url);
+    
+    try {
+      const basic_info = await ytdl.getBasicInfo(url);
+      const extended_info = await ytdl.getInfo(url);
 
-    const details = basic_info.videoDetails;
-    const formats = extended_info.formats;
+      const details = basic_info.videoDetails;
+      const formats = extended_info.formats;
 
-    const isOnlyVideo = (format) => format.hasVideo && !format.hasAudio && format.contentLength;
-    const isOnlyAudio = (format) => !format.hasVideo && format.hasAudio && format.contentLength;
+      const isOnlyVideo = (format) => format.hasVideo && !format.hasAudio && format.contentLength;
+      const isOnlyAudio = (format) => !format.hasVideo && format.hasAudio && format.contentLength;
 
-    const video_formats = formats.filter(isOnlyVideo).map((f) => ({ ...f, id: v4() }));
-	  const audio_formats = formats.filter(isOnlyAudio).map((f) => ({ ...f, id: v4() }));
+      const video_formats = formats.filter(isOnlyVideo).map((f) => ({ ...f, id: v4() }));
+      const audio_formats = formats.filter(isOnlyAudio).map((f) => ({ ...f, id: v4() }));
 
-    store.set(video_id, {
-      id: video_id,
-      formats: {
-        video: video_formats,
-        audio: audio_formats
-      }
-    });
+      store.set(video_id, {
+        id: video_id,
+        formats: {
+          video: video_formats,
+          audio: audio_formats
+        }
+      });
 
-    resolve({
-      id: video_id,
-      title: details.title,
-      thumbnail: details.thumbnails[details.thumbnails.length - 1].url,
-      formats: {
-        video: video_formats.map((f) => {
-          return {
-            id: f.id,
-            label: `${f.qualityLabel} - ${convertBits(f.bitrate).kb}kbps - ${convertFileSize(f.contentLength)}`
-          };
-        }),
-        audio: audio_formats.map((f) => {
-          return {
-            id: f.id,
-            label: `${convertHz(f.audioSampleRate, 1).khz}kHz - ${f.audioBitrate}kbps - ${convertFileSize(f.contentLength)}`
-          };
-        })
-      }
-    });
+      resolve({
+        id: video_id,
+        title: details.title,
+        thumbnail: details.thumbnails[details.thumbnails.length - 1].url,
+        formats: {
+          video: video_formats.map((f) => {
+            return {
+              id: f.id,
+              label: `${f.qualityLabel} - ${convertBits(f.bitrate).kb}kbps - ${convertFileSize(f.contentLength)}`
+            };
+          }),
+          audio: audio_formats.map((f) => {
+            return {
+              id: f.id,
+              label: `${convertHz(f.audioSampleRate, 1).khz}kHz - ${f.audioBitrate}kbps - ${convertFileSize(f.contentLength)}`
+            };
+          })
+        }
+      });
+    } catch (e) {
+      resolve({
+        error: e.toString()
+      });
+    }
   })
 }
 
@@ -96,66 +103,78 @@ export function beginDownload(data, store, sender) {
 
     const url = `https://youtube.com/watch?v=${video_id}`;
 
-    const stored_video_format = stored.formats.video.find((f) => f.id == video_format);
-    const stored_audio_format = stored.formats.audio.find((f) => f.id == audio_format);
+    const downloadVideo = Boolean(video_format);
+    const downloadAudio = Boolean(audio_format);
 
-    const video_progress_handler = progress_stream({
-      length: (stored_video_format) ? parseInt(stored_video_format.contentLength) : 0,
-      time: 100
-    });
-
-    const audio_progress_handler = progress_stream({
-      length: (stored_audio_format) ? parseInt(stored_audio_format.contentLength) : 0,
-      time: 100
-    });
-
-    video_progress_handler.on("progress", (p) => {
-      sender("progress", p.percentage);
-    });
-
-    audio_progress_handler.on("progress", (p) => {
-      sender("progress", p.percentage);
-    });
+    const onlyDownloadVideo = downloadVideo && !downloadAudio;
+    const onlyDownloadAudio = downloadAudio && !downloadVideo;
+    const downloadBoth = downloadVideo && downloadAudio;
 
     const makeFilePath = (format, prefix) => join(save_path, `${(prefix) ? `(${prefix}) ` : ""}${title}.${format.container}`);
 
-    const video_path = makeFilePath(stored_video_format, "VIDEO");
-    const audio_path = makeFilePath(stored_audio_format, "AUDIO");
+    const makeFormatData = (type, id) => {
+      const stored_format = stored.formats[type].find((f) => f.id == id);
+
+      const progress_handler = progress_stream({
+        length: stored_format.contentLength,
+        time: 100
+      });
+
+      progress_handler.on("progress", (p) => {
+        sender("progress", p.percentage);
+      });
+
+      const file_path = makeFilePath(stored_format, type.toUpperCase());
+
+      return {
+        format: stored_format,
+        handler: progress_handler,
+        path: file_path
+      };
+    };
 
     const finish = () => {
       sender("finish");
     };
+    
+    if (onlyDownloadVideo) {
+      const video_data = makeFormatData("video", video_format);
 
-    if (video_format && !audio_format) {
       sender("action", "Video");
 
       ytdl(url, {
-        format: stored_video_format
-      }).pipe(video_progress_handler).pipe(fs.createWriteStream(video_path)).on("finish", () => {
+        format: video_data.format
+      }).pipe(video_data.handler).pipe(fs.createWriteStream(video_data.path)).on("finish", () => {
         finish();
       });
-    }  else if (audio_format && !video_format) {
+    } else if (onlyDownloadAudio) {
+      const audio_data = makeFormatData("audio", audio_format);
+
       sender("color", "warning");
       sender("action", "Audio");
 
       ytdl(url, {
-        format: stored_audio_format
-      }).pipe(audio_progress_handler).pipe(fs.createWriteStream(audio_path)).on("finish", () => {
+        format: audio_data.format
+      }).pipe(audio_data.handler).pipe(fs.createWriteStream(audio_data.path)).on("finish", () => {
         finish();
       });
-    } else if (video_format && audio_format) {
+    } else if (downloadBoth) {
+      const video_data = makeFormatData("video", video_format);
+      
       sender("action", "Video");
       
       ytdl(url, {
-        format: stored_video_format
-      }).pipe(video_progress_handler).pipe(fs.createWriteStream(video_path)).on("finish", () => {
+        format: video_data.format
+      }).pipe(video_data.handler).pipe(fs.createWriteStream(video_data.path)).on("finish", () => {
+        const audio_data = makeFormatData("audio", audio_format);
+        
         sender("color", "warning");
         sender("progress", 0);
         sender("action", "Audio");
         
         ytdl(url, {
-          format: stored_audio_format
-        }).pipe(audio_progress_handler).pipe(fs.createWriteStream(audio_path)).on("finish", () => {
+          format: audio_data.format
+        }).pipe(audio_data.handler).pipe(fs.createWriteStream(audio_data.path)).on("finish", () => {
           if (merge) {
             sender("color", "success");
             sender("progress", 0);
@@ -166,8 +185,8 @@ export function beginDownload(data, store, sender) {
             const merged_path = makeFilePath({ container: "mp4" });
 
             ffmpeg()
-              .addInput(video_path)
-              .addInput(audio_path)
+              .addInput(video_data.path)
+              .addInput(audio_data.path)
               .addOptions(["-map 0:v", "-map 1:a", "-c:v copy"])
               .format("mp4")
               .on("progress", (p) => {
@@ -176,8 +195,8 @@ export function beginDownload(data, store, sender) {
               .on("error", (e) => console.error(e))
               .on("end", () => {
                 if (!keep_files) {
-                  fs.unlink(video_path, () => {
-                    fs.unlink(audio_path, () => {
+                  fs.unlink(video_data.path, () => {
+                    fs.unlink(audio_data.path, () => {
                       finish();
                     });
                   });

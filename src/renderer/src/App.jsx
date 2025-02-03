@@ -14,7 +14,8 @@ const dataFetchErrors = {
 const dataFetchTypes = {
   ON_LOADING: "on_loading",
   OFF_LOADING: "off_loading",
-  SET_URL: "set_url"
+  SET_URL: "set_url",
+  FETCH_ERROR: "fetch_error"
 };
 
 function dataFetchReducer(state, action) {
@@ -46,6 +47,19 @@ function dataFetchReducer(state, action) {
         input,
         error,
         helperText
+      }
+    };
+  }
+
+  if (type == dataFetchTypes.FETCH_ERROR) {
+    const error = action.error;
+
+    return {
+      ...state,
+      url: {
+        ...state.url,
+        error: true,
+        helperText: error
       }
     };
   }
@@ -90,6 +104,14 @@ function App() {
 
   const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
+  const makeProgressValue = (progress, modifier) => {
+    if (!progress || progress < 0) return 0;
+    else {
+      if (progress > 100) return 100;
+      else return (modifier) ? modifier(progress) : progress;
+    }
+  };
+
   useEffect(() => {
     window.api.listenToMain("progress", (value) => setProgressValue(value));
     window.api.listenToMain("color", (color) => setProgressColor(color));
@@ -128,10 +150,22 @@ function App() {
                   type: dataFetchTypes.OFF_LOADING
                 });
 
-                setSelectedVideoFormat(data.formats.video[0].id);
-                setSelectedAudioFormat(data.formats.audio[0].id);
+                if (data.error) {
+                  if (data.error.match(/private video/g)) return dataFetchDispatch({
+                    type: dataFetchTypes.FETCH_ERROR,
+                    error: "dlpal can not download private videos"
+                  });
 
-                setVideoData(data);
+                  return dataFetchDispatch({
+                    type: dataFetchTypes.FETCH_ERROR,
+                    error: "dlpal can not download this video"
+                  });
+                } else {
+                  setSelectedVideoFormat(data.formats.video[0].id);
+                  setSelectedAudioFormat(data.formats.audio[0].id);
+  
+                  setVideoData(data);
+                }
               });
             }} disabled={downloading || Boolean(videoData)}><FontAwesomeIcon icon={faDownload} />&nbsp;Fetch data</Button>
             {(videoData) ? (
@@ -162,8 +196,8 @@ function App() {
                           path: {
                             stroke: `rgba(${progress_colors[progressColor]}, 1)`
                           }
-                        }} value={(!progressValue || progressValue < 0) ? 0 : progressValue}>
-                          <span>{(!progressValue || progressValue < 0) ? 0 : progressValue.toFixed(0)}%</span>
+                        }} value={makeProgressValue(progressValue)}>
+                          <span>{makeProgressValue(progressValue, (v) => v.toFixed(0))}%</span>
                           <span className="text-xs">{progressAction}</span>
                         </CircularProgressbarWithChildren>
                       </div>
@@ -227,7 +261,7 @@ function App() {
                       }} disabled={downloading}><FontAwesomeIcon icon={faFileDownload} />&nbsp;&nbsp;BEGIN DOWNLOAD</Button>
                     ) : ""}
                     {(downloading) ? (
-                      <LinearProgress variant="determinate" color={progressColor} value={(progressValue) ? progressValue : 0} />
+                      <LinearProgress variant="determinate" color={progressColor} value={makeProgressValue(progressValue)} />
                     ) : ""}
                   </div>
                   <div className="flex flex-col gap-4 mt-6">
@@ -242,12 +276,14 @@ function App() {
                           <FontAwesomeIcon icon={faVolumeHigh} />&nbsp;Download video
                         </>
                       )} />
-                      <FormControlLabel control={<Switch checked={getMerge} onChange={(e) => setGetMerge(e.target.checked)} disabled={downloading} />} label={(
-                        <>
-                          <FontAwesomeIcon icon={faCut} />&nbsp;Merge video and audio
-                        </>
-                      )} />
-                      {(getMerge) ? (
+                      {(getVideo && getAudio) ? (
+                        <FormControlLabel control={<Switch checked={getMerge} onChange={(e) => setGetMerge(e.target.checked)} disabled={downloading} />} label={(
+                          <>
+                            <FontAwesomeIcon icon={faCut} />&nbsp;Merge video and audio
+                          </>
+                        )} />
+                      ) : ""}
+                      {(getMerge && (getVideo && getAudio)) ? (
                         <FormControlLabel control={<Switch checked={getKeep} onChange={(e) => setGetKeep(e.target.checked)} disabled={downloading} />} label={(
                           <>
                             <FontAwesomeIcon icon={faBox} />&nbsp;Keep separate files
