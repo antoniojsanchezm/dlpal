@@ -122,7 +122,7 @@ function App() {
       setProgressColor(initial_progress_color);
       setProgressAction("");
     });
-  });
+  }, []);
 
   return (
     <div>
@@ -273,7 +273,7 @@ function App() {
                       )} />
                       <FormControlLabel control={<Switch checked={getAudio} onChange={(e) => setGetAudio(e.target.checked)} disabled={downloading} />} label={(
                         <>
-                          <FontAwesomeIcon icon={faVolumeHigh} />&nbsp;Download video
+                          <FontAwesomeIcon icon={faVolumeHigh} />&nbsp;Download audio
                         </>
                       )} />
                       {(getVideo && getAudio) ? (
@@ -298,8 +298,11 @@ function App() {
           }
         </div>
       </div>
-      <div className="footer uncopyable pr-4 pb-4">
-        <span className="text-xs text-gray-500"><span className="text-red-500 hover:font-bold" onClick={() => setDisclaimerOpen(true)}>Disclaimer</span> - <span className="hover:font-bold" onClick={async () => {
+      <div className="footer uncopyable pr-4 pb-4 flex flex-col gap-1 justify-end">
+        <span className="text-xs text-blue-300 hover:font-bold hover:underline" onClick={async () => {
+          await window.api.openLink("https://github.com/anventec/dlpal/releases");
+        }}>dlpal v1.0.5</span>
+        <span className="text-xs text-gray-500"><span className="text-red-500 hover:font-bold hover:underline" onClick={() => setDisclaimerOpen(true)}>Disclaimer</span> - <span className="hover:font-bold hover:underline" onClick={async () => {
           await window.api.openLink("https://github.com/anventec");
         }}>Developed by Anventec (Anven)</span></span>
       </div>

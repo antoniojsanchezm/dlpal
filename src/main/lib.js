@@ -75,13 +75,13 @@ export function fetchVideoData(url, store) {
           video: video_formats.map((f) => {
             return {
               id: f.id,
-              label: `${f.qualityLabel} - ${convertBits(f.bitrate).kb}kbps - ${convertFileSize(f.contentLength)}`
+              label: `${f.qualityLabel} - ${convertBits(f.bitrate).kb}kbps - ${convertFileSize(f.contentLength)} (.${f.container})`
             };
           }),
           audio: audio_formats.map((f) => {
             return {
               id: f.id,
-              label: `${convertHz(f.audioSampleRate, 1).khz}kHz - ${f.audioBitrate}kbps - ${convertFileSize(f.contentLength)}`
+              label: `${convertHz(f.audioSampleRate, 1).khz}kHz - ${f.audioBitrate}kbps - ${convertFileSize(f.contentLength)} (.${f.container})`
             };
           })
         }

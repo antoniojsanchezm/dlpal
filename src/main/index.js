@@ -65,7 +65,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle("fetchData", (e, url) => fetchVideoData(url, store));
 
-  const sender = (...args) =>window.webContents.send(...args);
+  const sender = (...args) => window.webContents.send(...args);
 
   ipcMain.handle("beginDownload", (e, data) => beginDownload(data, store, sender, process.resourcesPath));
 
