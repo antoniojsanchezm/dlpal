@@ -1,10 +1,12 @@
-import { faBox, faCut, faDownload, faFileDownload, faLink, faRepeat, faScroll, faVideo, faVolumeHigh } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormControlLabel, FormGroup, InputLabel, LinearProgress, MenuItem, Select, Switch, TextField } from '@mui/material';
-import getVideoId from 'get-video-id';
-import { useEffect, useReducer, useState } from 'react';
-import { CircularProgressbarWithChildren } from 'react-circular-progressbar';
-import 'react-circular-progressbar/dist/styles.css';
+import { faBox, faCut, faDownload, faFileDownload, faLink, faRepeat, faScroll, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormControlLabel, FormGroup, InputLabel, LinearProgress, MenuItem, Select, TextField } from "@mui/material";
+import { useEffect, useReducer, useState } from "react";
+import { CircularProgressbarWithChildren } from "react-circular-progressbar";
+import getVideoId from "get-video-id";
+import Toggler from "./components/Toggler";
+import IconAndText from "./components/IconAndText";
+import DisclaimerAppName from "./components/DisclaimerAppName";
+import "react-circular-progressbar/dist/styles.css";
 
 const dataFetchErrors = {
   EMPTY_URL: "The URL can not be empty",
@@ -16,6 +18,21 @@ const dataFetchTypes = {
   OFF_LOADING: "off_loading",
   SET_URL: "set_url",
   FETCH_ERROR: "fetch_error"
+};
+
+/**
+ * Normalizes/modifies a progress value
+ * @param {number} progress Progress of the stream
+ * @param {function} modifier Modifier function to mutate the progress
+ * @returns Normalized or modified progress
+ */
+
+function makeProgressValue(progress, modifier) {
+  if (!progress || progress < 0) return 0;
+  else {
+    if (progress > 100) return 100;
+    else return (modifier) ? modifier(progress) : progress;
+  }
 };
 
 function dataFetchReducer(state, action) {
@@ -66,7 +83,7 @@ function dataFetchReducer(state, action) {
 }
 
 function App() {
-  const [dataFetchState, dataFetchDispatch] = useReducer(dataFetchReducer, {
+  const [data_fetch_state, dataFetchDispatch] = useReducer(dataFetchReducer, {
     loading: false,
     url: {
       input: "",
@@ -75,14 +92,16 @@ function App() {
     }
   });
 
-  const [videoData, setVideoData] = useState(null);
-  const [selectedVideoFormat, setSelectedVideoFormat] = useState(null);
-  const [selectedAudioFormat, setSelectedAudioFormat] = useState(null);
+  const [first_render_made, setFirstRenderMade] = useState(false);
 
-  const [getVideo, setGetVideo] = useState(true);
-  const [getAudio, setGetAudio] = useState(true);
-  const [getMerge, setGetMerge] = useState(true);
-  const [getKeep, setGetKeep] = useState(false);
+  const [video_data, setVideoData] = useState(null);
+  const [selected_video_format, setSelectedVideoFormat] = useState(null);
+  const [selected_audio_format, setSelectedAudioFormat] = useState(null);
+
+  const [get_video, setGetVideo] = useState(true);
+  const [get_audio, setGetAudio] = useState(true);
+  const [get_merge, setGetMerge] = useState(true);
+  const [get_keep, setGetKeep] = useState(false);
 
   const initial_progress_value = 0;
   const initial_progress_color = "secondary";
@@ -98,54 +117,52 @@ function App() {
   };
 
   const [downloading, setDownloading] = useState(false);
-  const [progressValue, setProgressValue] = useState(initial_progress_value);
-  const [progressColor, setProgressColor] = useState(initial_progress_color);
-  const [progressAction, setProgressAction] = useState(initial_progress_action);
+  const [progress_value, setProgressValue] = useState(initial_progress_value);
+  const [progress_color, setProgressColor] = useState(initial_progress_color);
+  const [progress_action, setProgressAction] = useState(initial_progress_action);
 
-  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
-
-  const makeProgressValue = (progress, modifier) => {
-    if (!progress || progress < 0) return 0;
-    else {
-      if (progress > 100) return 100;
-      else return (modifier) ? modifier(progress) : progress;
-    }
-  };
+  const [disclaimer_open, setDisclaimerOpen] = useState(false);
 
   useEffect(() => {
-    window.api.listenToMain("progress", (value) => setProgressValue(value));
-    window.api.listenToMain("color", (color) => setProgressColor(color));
-    window.api.listenToMain("action", (action) => setProgressAction(action));
-    window.api.listenToMain("finish", () => {
-      setDownloading(false);
-      setProgressValue(initial_progress_value);
-      setProgressColor(initial_progress_color);
-      setProgressAction("");
-    });
+    // TODO: Implement toast saying "Your video has downloaded!" with some extra data
+    // TODO: Option for chapters
+    // TODO: Option for converting audio/video to a specific format
+    // TODO: Option for playlists
+    // TODO: Add queue feature
+
+    if (!first_render_made) { // Avoid event listener event leak (multiple listeners because of the re-rendering of React's strict mode)
+      window.api.listenToMain("progress", (value) => setProgressValue(value));
+      window.api.listenToMain("color", (color) => setProgressColor(color));
+      window.api.listenToMain("action", (action) => setProgressAction(action));
+      window.api.listenToMain("finish", () => {
+        setDownloading(false);
+        setProgressValue(initial_progress_value);
+        setProgressColor(initial_progress_color);
+        setProgressAction("");
+      });
+
+      setFirstRenderMade(true);
+    }
   }, []);
 
   return (
     <div>
       <div className="p-8">
         <div className="flex flex-col gap-5">
-          <div>
+          <div className="uncopyable">
             <span className="text-3xl">dlpal</span>
           </div>
           <div className="flex items-center gap-5 w-full mt-1">
-            <TextField className="w-3/5" size="small" label={(
-              <>
-                <FontAwesomeIcon icon={faLink} />&nbsp;Video URL
-              </>
-            )} variant="outlined" error={dataFetchState.url.error} helperText={dataFetchState.url.helperText} value={dataFetchState.url.input} onChange={(e) => dataFetchDispatch({
+            <TextField className="w-3/5" size="small" label={<IconAndText icon={faLink} text="Video URL" />} variant="outlined" error={data_fetch_state.url.error} helperText={data_fetch_state.url.helperText} value={data_fetch_state.url.input} onChange={(e) => dataFetchDispatch({
               type: dataFetchTypes.SET_URL,
               input: e.target.value
-            })} disabled={downloading || Boolean(videoData)} />
-            <Button variant="contained" className={`${(dataFetchState.url.error) ? "invisible" : ""}`} loading={dataFetchState.loading} onClick={() => {
+            })} disabled={downloading || Boolean(video_data)} />
+            <Button variant="contained" className={`${(data_fetch_state.url.error) ? "invisible" : ""}`} loading={data_fetch_state.loading} onClick={() => {
               dataFetchDispatch({
                 type: dataFetchTypes.ON_LOADING
               });
 
-              window.api.fetchData(dataFetchState.url.input).then((data) => {
+              window.api.fetchData(data_fetch_state.url.input).then((data) => {
                 dataFetchDispatch({
                   type: dataFetchTypes.OFF_LOADING
                 });
@@ -167,38 +184,44 @@ function App() {
                   setVideoData(data);
                 }
               });
-            }} disabled={downloading || Boolean(videoData)}><FontAwesomeIcon icon={faDownload} />&nbsp;Fetch data</Button>
-            {(videoData) ? (
+            }} disabled={downloading || Boolean(video_data)}>
+              <IconAndText icon={faDownload} text="Fetch data" />
+            </Button>
+            {(video_data) ? (
               <Button variant="contained" color="error" onClick={async () => {
                 await window.api.clearStore();
-
+                
                 dataFetchDispatch({
                   type: dataFetchTypes.SET_URL,
                   input: ""
                 });
-
+                
                 setVideoData(null);
-              }} disabled={downloading}><FontAwesomeIcon icon={faRepeat} />&nbsp;Reset</Button>
+              }} disabled={downloading}>
+                <IconAndText icon={faRepeat} text="Reset" />
+              </Button>
             ) : ""}
           </div>
           {
-            (videoData) ? (
+            (video_data) ? (
               <div>
                 <div className="grid grid-cols-4">
                   <div className="col-span-3">
-                    <span className="text-lg"><FontAwesomeIcon icon={faScroll} />&nbsp;{videoData.title}</span>
-                    <img className="h-48 rounded-lg mt-2" src={videoData.thumbnail} />
+                    <span className="text-lg">
+                      <IconAndText icon={faScroll} text={video_data.title} />
+                    </span>
+                    <img className="h-48 rounded-lg mt-2" src={video_data.thumbnail} />
                   </div>
                   {(downloading) ? (
                     <div className="flex items-center">
                       <div className="flex flex-col gap-2 w-28">
                         <CircularProgressbarWithChildren styles={{
                           path: {
-                            stroke: `rgba(${progress_colors[progressColor]}, 1)`
+                            stroke: `rgba(${progress_colors[progress_color]}, 1)`
                           }
-                        }} value={makeProgressValue(progressValue)}>
-                          <span>{makeProgressValue(progressValue, (v) => v.toFixed(0))}%</span>
-                          <span className="text-xs">{progressAction}</span>
+                        }} value={makeProgressValue(progress_value)}>
+                          <span>{makeProgressValue(progress_value, (v) => v.toFixed(0))}%</span>
+                          <span className="text-xs">{progress_action}</span>
                         </CircularProgressbarWithChildren>
                       </div>
                     </div>
@@ -206,89 +229,75 @@ function App() {
                 </div>
                 <div className="grid grid-cols-2 gap-8">
                   <div className="flex flex-col gap-4 mt-6">
-                    {(getVideo) ? (
+                    {(get_video) ? (
                       <FormControl>
-                        <InputLabel id="video-quality"><FontAwesomeIcon icon={faVideo} />&nbsp;Video quality</InputLabel>
+                        <InputLabel id="video-quality"><IconAndText icon={faVideo} text="Video quality" /></InputLabel>
                         <Select
                           labelId="video-quality"
                           label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Video quality"
-                          value={selectedVideoFormat}
+                          value={selected_video_format}
                           onChange={(e) => setSelectedVideoFormat(e.target.value)}
                           disabled={downloading}
                         >
-                          {videoData.formats.video.map((f) => (
+                          {video_data.formats.video.map((f) => (
                             <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>
                           ))}
                         </Select>
                       </FormControl>
                     ) : ""}
-                    {(getAudio) ? (
+                    {(get_audio) ? (
                       <FormControl>
-                        <InputLabel id="audio-quality"><FontAwesomeIcon icon={faVolumeHigh} />&nbsp;Audio quality</InputLabel>
+                        <InputLabel id="audio-quality"><IconAndText icon={faVolumeHigh} text="Audio quality" /></InputLabel>
                         <Select
                           labelId="audio-quality"
                           label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Audio quality"
-                          value={selectedAudioFormat}
+                          value={selected_audio_format}
                           onChange={(e) => setSelectedAudioFormat(e.target.value)}
                           disabled={downloading}
                         >
-                          {videoData.formats.audio.map((f) => (
+                          {video_data.formats.audio.map((f) => (
                             <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>
                           ))}
                         </Select>
                       </FormControl>
                     ) : ""}
-                    {(getVideo || getAudio) ? (
+                    {(get_video || get_audio) ? (
                       <Button variant="contained" color="success" onClick={async () => {
                         window.api.openDirectory().then(async (path) => {
                           if (path) {
                             const download_data = {
-                              video_id: videoData.id,
-                              title: videoData.title.replace(/[&\/\\#,+()$~%.'":*?<>{}\|]/g, ""),
+                              video_id: video_data.id,
+                              title: video_data.title.replace(/[&\/\\#,+()$~%."":*?<>{}\|]/g, ""),
                               save_path: path,
-                              merge: getMerge,
-                              keep_files: getKeep
+                              merge: get_merge,
+                              keep_files: get_keep
                             };
 
-                            if (getVideo) download_data.video_format = selectedVideoFormat;
-                            if (getAudio) download_data.audio_format = selectedAudioFormat;
+                            if (get_video) download_data.video_format = selected_video_format;
+                            if (get_audio) download_data.audio_format = selected_audio_format;
 
                             setDownloading(true)
 
                             await window.api.beginDownload(download_data);
                           }
                         });
-                      }} disabled={downloading}><FontAwesomeIcon icon={faFileDownload} />&nbsp;&nbsp;BEGIN DOWNLOAD</Button>
+                      }} disabled={downloading}>
+                        <IconAndText icon={faFileDownload} text={(<>&nbsp;BEGIN DOWNLOAD</>)} />
+                      </Button>
                     ) : ""}
                     {(downloading) ? (
-                      <LinearProgress variant="determinate" color={progressColor} value={makeProgressValue(progressValue)} />
+                      <LinearProgress variant="determinate" color={progress_color} value={makeProgressValue(progress_value)} />
                     ) : ""}
                   </div>
                   <div className="flex flex-col gap-4 mt-6">
                     <FormGroup>
-                      <FormControlLabel control={<Switch checked={getVideo} onChange={(e) => setGetVideo(e.target.checked)} disabled={downloading} />} label={(
-                        <>
-                          <FontAwesomeIcon icon={faVideo} />&nbsp;Download video
-                        </>
-                      )} />
-                      <FormControlLabel control={<Switch checked={getAudio} onChange={(e) => setGetAudio(e.target.checked)} disabled={downloading} />} label={(
-                        <>
-                          <FontAwesomeIcon icon={faVolumeHigh} />&nbsp;Download audio
-                        </>
-                      )} />
-                      {(getVideo && getAudio) ? (
-                        <FormControlLabel control={<Switch checked={getMerge} onChange={(e) => setGetMerge(e.target.checked)} disabled={downloading} />} label={(
-                          <>
-                            <FontAwesomeIcon icon={faCut} />&nbsp;Merge video and audio
-                          </>
-                        )} />
+                      <Toggler checked={get_video} changeHook={setGetVideo} disabled={downloading} icon={faVideo} label="Download video" />
+                      <Toggler checked={get_audio} changeHook={setGetAudio} disabled={downloading} icon={faVolumeHigh} label="Download audio" />
+                      {(get_video && get_audio) ? (
+                        <Toggler checked={get_merge} changeHook={setGetMerge} disabled={downloading} icon={faCut} label="Merge video and audio" />
                       ) : ""}
-                      {(getMerge && (getVideo && getAudio)) ? (
-                        <FormControlLabel control={<Switch checked={getKeep} onChange={(e) => setGetKeep(e.target.checked)} disabled={downloading} />} label={(
-                          <>
-                            <FontAwesomeIcon icon={faBox} />&nbsp;Keep separate files
-                          </>
-                        )} />
+                      {(get_merge && (get_video && get_audio)) ? (
+                        <Toggler checked={get_keep} changeHook={setGetKeep} disabled={downloading} icon={faBox} label="Keep separate files" />
                       ) : ""}
                     </FormGroup>
                   </div>
@@ -300,23 +309,21 @@ function App() {
       </div>
       <div className="footer uncopyable pr-4 pb-4 flex flex-col gap-1 justify-end">
         <span className="text-xs text-blue-300 hover:font-bold hover:underline" onClick={async () => {
-          await window.api.openLink("https://github.com/anventec/dlpal/releases");
+          await window.api.openLink("https://github.com/antoniojsanchezm/dlpal/releases");
         }}>dlpal v1.0.5</span>
         <span className="text-xs text-gray-500"><span className="text-red-500 hover:font-bold hover:underline" onClick={() => setDisclaimerOpen(true)}>Disclaimer</span> - <span className="hover:font-bold hover:underline" onClick={async () => {
-          await window.api.openLink("https://github.com/anventec");
-        }}>Developed by Anventec (Anven)</span></span>
+          await window.api.openLink("https://github.com/antoniojsanchezm/");
+        }}>Developed by Antonio S.</span></span>
       </div>
-      <Dialog open={disclaimerOpen} onClose={() => setDisclaimerOpen(false)}>
+      <Dialog open={disclaimer_open} onClose={() => setDisclaimerOpen(false)}>
           <DialogTitle>Disclaimer</DialogTitle>
           <DialogContent>
-            <DialogContentText>
-            <ul>
-              <li>dlpal will not be held responsible for what end users do with downloaded content.</li>
-              <li className="mt-2">dlpal do not own nor claim to own the rights to any of the content that end users can download.</li>
-              <li className="mt-2">dlpal is not associated in any way with YouTube or Google LLC.</li>
-              <li className="mt-2">YouTube is a registered trademark of Google LLC.</li>
-              <li className="mt-2">dlpal is still a work in progress. Bugs are expected.</li>
-            </ul>
+            <DialogContentText className="flex flex-col gap-4">
+              <span><DisclaimerAppName /> will NOT be held responsible for what end users do with downloaded content.</span>
+              <span><DisclaimerAppName /> does NOT own nor claim to own the rights to any of the content that end users can download.</span>
+              <span><DisclaimerAppName /> is NOT associated in any way with YouTube or Google LLC.</span>
+              <span>YouTube is a registered trademark of Google LLC.</span>
+              <span><DisclaimerAppName /> is still a work in progress. Bugs are expected.</span>
             </DialogContentText>
           </DialogContent>
           <DialogActions>
@@ -327,4 +334,4 @@ function App() {
   )
 }
 
-export default App
+export default App;

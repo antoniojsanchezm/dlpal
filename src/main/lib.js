@@ -1,11 +1,19 @@
-import ytdl from "@distube/ytdl-core"
-import fs from "node:fs"
-import humanize from "humanize"
-import progress_stream from "progress-stream"
-import { v4 } from "uuid"
-import ffmpeg from "fluent-ffmpeg"
-import ffmse from "ffmpeg-static-electron"
-import { join } from 'path'
+import ytdl from "@distube/ytdl-core";
+import fs from "node:fs";
+import humanize from "humanize";
+import progress_stream from "progress-stream";
+import { v4 } from "uuid";
+import ffmpeg from "fluent-ffmpeg";
+import ffmse from "ffmpeg-static-electron";
+import { join } from "path";
+
+/**
+ * Converts a given quantity from bits to kilobytes, megabytes and gigabytes
+ * @param {number} bits Bits quantity
+ * @param {number} fixed Fixed number of decimals
+ * @param {boolean} exact If you want the exact numbers (not cropped ones)
+ * @returns Object with b, kb, mb and gb
+ */
 
 export const convertBits = (bits, fixed = 0, exact = false) => {
   const data = {
@@ -21,6 +29,14 @@ export const convertBits = (bits, fixed = 0, exact = false) => {
 
   return data;
 };
+
+/**
+ * Converts a given quantity from hertz to kilohertz and megahertz
+ * @param {number} hz Hertz quantity
+ * @param {number} fixed Fixed number of decimals
+ * @param {boolean} exact If you want the exact numbers (not cropped ones)
+ * @returns Object with hz, khz and mhz
+ */
 
 export const convertHz = (hz, fixed = 0, exact = false) => {
   hz = parseInt(hz);
@@ -38,9 +54,22 @@ export const convertHz = (hz, fixed = 0, exact = false) => {
   return data;
 };
 
+/**
+ * Humanizes a file size
+ * @param {number} size Size of the file
+ * @returns Humanized size of the files
+ */
+
 export const convertFileSize = (size) => {
   return (size) ? humanize.filesize(size) : "??? size";
-}
+};
+
+/**
+ * Fetchs data from a given YouTube video URL
+ * @param {string} url YouTube video URL
+ * @param {Map} store Map where the temp data is stored
+ * @returns Promise, resolving an object with some useful data of the video and the video and audio available formats
+ */
 
 export function fetchVideoData(url, store) {
   return new Promise(async (resolve, reject) => {
@@ -94,6 +123,13 @@ export function fetchVideoData(url, store) {
   })
 }
 
+/**
+ * Begins the download of a single file
+ * @param {object} data Download data
+ * @param {Map} store Map where the temp data is stored
+ * @param {function} sender Sender function to communicate between backend -> frontend
+ * @returns Promise, never resolving
+ */
 
 export function beginDownload(data, store, sender) {
   return new Promise((resolve, reject) => {

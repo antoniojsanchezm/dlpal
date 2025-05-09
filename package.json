@@ -3,8 +3,8 @@
   "version": "1.0.5",
   "description": "Desktop app made in Electron, React and Tailwind CSS for downloading YouTube long-format videos and shorts.",
   "main": "./out/main/index.js",
-  "author": "anventec",
-  "homepage": "https://github.com/anventec/dlpal",
+  "author": "antoniojsanchezm",
+  "homepage": "https://github.com/antoniojsanchezm/dlpal",
   "scripts": {
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
@@ -17,10 +17,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anventec/dlpal.git"
+    "url": "git+https://github.com/antoniojsanchezm/dlpal.git"
   },
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.6",
+    "@distube/ytdl-core": "^4.16.10",
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
     "@emotion/react": "^11.14.0",
