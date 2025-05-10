@@ -60,6 +60,10 @@ app.whenReady().then(() => {
     if (canceled) return;
     else return filePaths[0];
   });
+  
+  ipcMain.handle("showItemInFolder", async (e, item) => {
+    return shell.showItemInFolder(item);
+  });
 
   ipcMain.handle("clearStore", () => store.clear());
 
