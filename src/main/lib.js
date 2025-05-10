@@ -1,11 +1,12 @@
 import ytdl from "@distube/ytdl-core";
-import fs from "node:fs";
+import fs from "fs-extra";
 import humanize from "humanize";
 import progress_stream from "progress-stream";
 import { v4 } from "uuid";
 import ffmpeg from "fluent-ffmpeg";
 import ffmse from "ffmpeg-static-electron";
 import { join } from "path";
+import ffmpegOnProgress from "ffmpeg-on-progress";
 
 /**
  * Converts a given quantity from bits to kilobytes, megabytes and gigabytes
@@ -157,7 +158,7 @@ export function beginDownload(data, store, sender) {
       });
 
       progress_handler.on("progress", (p) => {
-        sender("progress", p.percentage);
+        sender("progress", (p.transferred / stored_format.contentLength) * 100);
       });
 
       const file_path = makeFilePath(stored_format, type.toUpperCase());
@@ -169,8 +170,8 @@ export function beginDownload(data, store, sender) {
       };
     };
 
-    const finish = () => {
-      sender("finish");
+    const finish = (saved_path) => {
+      sender("finish", saved_path);
     };
     
     if (onlyDownloadVideo) {
@@ -181,7 +182,7 @@ export function beginDownload(data, store, sender) {
       ytdl(url, {
         format: video_data.format
       }).pipe(video_data.handler).pipe(fs.createWriteStream(video_data.path)).on("finish", () => {
-        finish();
+        finish(video_data.path);
       });
     } else if (onlyDownloadAudio) {
       const audio_data = makeFormatData("audio", audio_format);
@@ -192,7 +193,7 @@ export function beginDownload(data, store, sender) {
       ytdl(url, {
         format: audio_data.format
       }).pipe(audio_data.handler).pipe(fs.createWriteStream(audio_data.path)).on("finish", () => {
-        finish();
+        finish(audio_data.path);
       });
     } else if (downloadBoth) {
       const video_data = makeFormatData("video", video_format);
@@ -225,21 +226,21 @@ export function beginDownload(data, store, sender) {
               .addInput(audio_data.path)
               .addOptions(["-map 0:v", "-map 1:a", "-c:v copy"])
               .format("mp4")
-              .on("progress", (p) => {
-                sender("progress", p.percent);
-              })
+              .on("progress", ffmpegOnProgress((p) => {
+                sender("progress", p * 100);
+              }, video_data.format.approxDurationMs))
               .on("error", (e) => console.error(e))
               .on("end", () => {
                 if (!keep_files) {
                   fs.unlink(video_data.path, () => {
                     fs.unlink(audio_data.path, () => {
-                      finish();
+                      finish(merged_path);
                     });
                   });
-                } else finish();
+                } else finish(merged_path);
               })
               .saveToFile(merged_path);
-          } else finish();
+          } else finish(video_data.path);
         });
       });
     }
