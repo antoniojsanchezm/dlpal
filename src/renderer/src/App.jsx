@@ -1,12 +1,14 @@
 import { faBox, faCut, faDownload, faFileDownload, faLink, faRepeat, faScroll, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormControlLabel, FormGroup, InputLabel, LinearProgress, MenuItem, Select, TextField } from "@mui/material";
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormGroup, InputLabel, LinearProgress, MenuItem, Select, TextField } from "@mui/material";
 import { useEffect, useReducer, useState } from "react";
 import { CircularProgressbarWithChildren } from "react-circular-progressbar";
 import getVideoId from "get-video-id";
 import Toggler from "./components/Toggler";
 import IconAndText from "./components/IconAndText";
 import DisclaimerAppName from "./components/DisclaimerAppName";
+import { ToastContainer, toast } from "react-toastify";
 import "react-circular-progressbar/dist/styles.css";
+import SuccessToast from "./components/SuccessToast";
 
 const dataFetchErrors = {
   EMPTY_URL: "The URL can not be empty",
@@ -124,7 +126,6 @@ function App() {
   const [disclaimer_open, setDisclaimerOpen] = useState(false);
 
   useEffect(() => {
-    // TODO: Implement toast saying "Your video has downloaded!" with some extra data
     // TODO: Option for chapters
     // TODO: Option for converting audio/video to a specific format
     // TODO: Option for playlists
@@ -134,11 +135,21 @@ function App() {
       window.api.listenToMain("progress", (value) => setProgressValue(value));
       window.api.listenToMain("color", (color) => setProgressColor(color));
       window.api.listenToMain("action", (action) => setProgressAction(action));
-      window.api.listenToMain("finish", () => {
+      window.api.listenToMain("finish", (saved_path) => {
         setDownloading(false);
         setProgressValue(initial_progress_value);
         setProgressColor(initial_progress_color);
         setProgressAction("");
+
+        toast(SuccessToast, {
+          position: "bottom-right",
+          hideProgressBar: true,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: false,
+          theme: "dark",
+          onClick: () => window.api.showItemInFolder(saved_path)
+        });
       });
 
       setFirstRenderMade(true);
@@ -330,6 +341,7 @@ function App() {
             <Button onClick={() => setDisclaimerOpen(false)}>Close</Button>
           </DialogActions>
       </Dialog>
+      <ToastContainer />
     </div>
   )
 }
