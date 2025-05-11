@@ -46,11 +46,11 @@ app.whenReady().then(() => {
 
   const store = new Map();
 
-  const sender = (...args) => window.webContents.send(...args);
+  const communicate = (...args) => window.webContents.send(...args);
   
   ipcMain.handle("fetchData", (e, url) => fetchVideoData(url, store));
 
-  ipcMain.handle("beginDownload", (e, queue) => beginDownload(queue, store, sender));
+  ipcMain.handle("beginDownload", (e, queue) => beginDownload(queue, store, communicate));
 
   ipcMain.handle("openDirectory", async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(window, {

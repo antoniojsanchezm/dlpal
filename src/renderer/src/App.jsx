@@ -1,4 +1,4 @@
-import { faBox, faCut, faDownload, faFileDownload, faLink, faListCheck, faPencil, faRepeat, faScroll, faTrash, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
+import { faBox, faCheckCircle, faCut, faDownload, faFileDownload, faLink, faListCheck, faPencil, faRepeat, faScroll, faTrash, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormGroup, InputLabel, LinearProgress, MenuItem, Select, TextField } from "@mui/material";
 import { useEffect, useReducer, useState } from "react";
 import { CircularProgressbarWithChildren } from "react-circular-progressbar";
@@ -74,13 +74,14 @@ function dataFetchReducer(state, action) {
 const queueDispatchTypes = {
   ADD: "add",
   DELETE: "delete",
-  EDIT: "edit"
+  EDIT: "edit",
+  PROGRESS: "progress"
 };
 
 function queueReducer(state, action) {
   const reduced = ((state, action) => {
     const { type } = action;
-    const { ADD, DELETE, EDIT } = queueDispatchTypes; // Destructuring the types for better readability
+    const { ADD, DELETE, EDIT, PROGRESS } = queueDispatchTypes; // Destructuring the types for better readability
 
     if (type == ADD) {
       const { payload } = action;
@@ -96,10 +97,36 @@ function queueReducer(state, action) {
       if (element) {
         const excluded = state.filter((s) => s.id != id);
 
-        return [...excluded, {
+        const modified = [...excluded, {
           ...element,
           ...payload
         }];
+
+        modified.sort((a, b) => a.position - b.position);
+
+        return modified;
+      }
+    }
+
+    if (type == PROGRESS) {
+      const { id, progress } = action; 
+
+      const element = state.find((s) => s.id == id);
+
+      if (element) {
+        const excluded = state.filter((s) => s.id != id);
+
+        const modified = [...excluded, {
+          ...element,
+          progress: {
+            ...element.progress,
+            ...progress
+          }
+        }];
+
+        modified.sort((a, b) => a.position - b.position);
+
+        return modified;
       }
     }
 
@@ -125,6 +152,7 @@ function queueReducer(state, action) {
  */
 
 function makeProgressValue(progress, modifier) {
+  console.log(progress)
   if (!progress || progress < 0) return 0;
   else {
     if (progress > 100) return 100;
@@ -187,10 +215,17 @@ function App() {
     // TODO: Add queue feature
 
     if (!first_render_made) { // Avoid event listener event leak (multiple listeners because of the re-rendering of React's strict mode)
-      window.api.listenToMain("progress", (value) => setProgressValue(value));
-      window.api.listenToMain("color", (color) => setProgressColor(color));
-      window.api.listenToMain("action", (action) => setProgressAction(action));
-      window.api.listenToMain("finish", (saved_path) => {
+      window.api.listenToMain("download_progress", (id, progress) => {
+        queueDispatch({
+          type: queueDispatchTypes.PROGRESS,
+          id,
+          progress
+        });
+      });
+
+      window.api.listenToMain("finish_queue", () => setDownloading(false));
+
+      /*window.api.listenToMain("finish", (saved_path) => {
         setDownloading(false);
         setProgressValue(initial_progress_value);
         setProgressColor(initial_progress_color);
@@ -205,7 +240,7 @@ function App() {
           theme: "dark",
           onClick: () => window.api.showItemInFolder(saved_path)
         });
-      });
+      });*/
 
       setFirstRenderMade(true);
     }
@@ -256,8 +291,6 @@ function App() {
             {(video_data) ? (
               <>
                 <Button variant="contained" color="error" onClick={async () => {
-                  await window.api.clearStore();
-                  
                   dataFetchDispatch({
                     type: dataFetchTypes.SET_URL,
                     input: ""
@@ -271,7 +304,7 @@ function App() {
             ) : ""}
             {(queue.length > 0) ? (
               <Button variant="contained" color="secondary" onClick={() => setQueueOpen(true)}>
-                <IconAndText icon={faListCheck} text="Queue" />
+                <IconAndText icon={faListCheck} text={`Queue`} />
               </Button>
             ) : ""}
           </div>
@@ -285,20 +318,6 @@ function App() {
                     </span>
                     <img className="h-48 rounded-lg mt-2" src={video_data.thumbnail} />
                   </div>
-                  {(downloading) ? (
-                    <div className="flex items-center">
-                      <div className="flex flex-col gap-2 w-28">
-                        <CircularProgressbarWithChildren styles={{
-                          path: {
-                            stroke: `rgba(${progress_colors[progress_color]}, 1)`
-                          }
-                        }} value={makeProgressValue(progress_value)}>
-                          <span>{makeProgressValue(progress_value, (v) => v.toFixed(0))}%</span>
-                          <span className="text-xs">{progress_action}</span>
-                        </CircularProgressbarWithChildren>
-                      </div>
-                    </div>
-                  ) : ""}
                 </div>
                 <div className="grid grid-cols-2 gap-8">
                   <div className="flex flex-col gap-4 mt-6">
@@ -339,6 +358,7 @@ function App() {
                         window.api.openDirectory().then(async (path) => {
                           if (path) {
                             const payload = {
+                              position: queue.length + 1,
                               ...video_data,
                               download: {
                                 title: video_data.title.replace(/[&\/\\#,+()$~%."":*?<>{}\|]/g, ""),
@@ -378,9 +398,6 @@ function App() {
                       }} disabled={downloading}>
                         <IconAndText icon={faListCheck} text={(<>&nbsp;ADD TO QUEUE</>)} />
                       </Button>
-                    ) : ""}
-                    {(downloading) ? (
-                      <LinearProgress variant="determinate" color={progress_color} value={makeProgressValue(progress_value)} />
                     ) : ""}
                   </div>
                   <div className="flex flex-col gap-4 mt-6">
@@ -424,19 +441,49 @@ function App() {
             <Button onClick={() => setDisclaimerOpen(false)}>Close</Button>
           </DialogActions>
       </Dialog>
-      <Dialog open={queue_open} onClose={() => setQueueOpen(false)}>
-          <DialogTitle>Queue</DialogTitle>
+      <Dialog maxWidth="xl" open={queue_open} onClose={() => setQueueOpen(false)}>
+          <DialogTitle>Queue ({queue.length})</DialogTitle>
           <DialogContent>
-            <DialogContentText className="flex flex-col gap-4">
+            <DialogContentText className="grid grid-cols-2 gap-4">
               {(queue.length > 0) ? queue.map((element) => {
                 return (
-                  <div className="flex flex-col gap-2 w-full bg-gray-600 text-white p-3 rounded-lg">
+                  <div className={`flex flex-col gap-2 w-full ${(element.progress) ? (element.progress.completed) ? "bg-green-900" : "bg-gray-600" : "bg-gray-600"} text-white p-3 rounded-lg`}>
                     <div className="flex items-center gap-4">
-                      <img src={element.thumbnail} className="rounded-xl w-32" alt="" />
-                      <span className="text-xl">{truncate(element.title, 70)}</span>
+                      <img src={element.thumbnail} className="rounded-xl w-28" alt="" />
+                      {(element.progress) ? (
+                        <div className="w-16">
+                          <CircularProgressbarWithChildren styles={{
+                            path: {
+                              stroke: `rgba(${(!element.progress.completed) ? progress_colors[element.progress.color] : progress_colors.success}, 1)`
+                            }
+                          }} value={(!element.progress.completed) ? makeProgressValue(element.progress.value) : 100}>
+                            {(!element.progress.completed) ? (
+                              <>
+                                <span>{makeProgressValue(element.progress.value, (v) => v.toFixed(0))}%</span>
+                                <span className="text-xs">{element.progress.action}</span>
+                              </>
+                            ) : (
+                              <span className="text-xl text-green-400"><FontAwesomeIcon icon={faCheckCircle} /></span>
+                            )}
+                          </CircularProgressbarWithChildren>
+                        </div>
+                      ) : ""}
                     </div>
+                    <span className="text-lg mt-1">
+                      {truncate(element.title, 28)}
+                      {(!downloading) ? (
+                        <span className="text-gray-400">
+                          &nbsp;
+                          &nbsp;
+                          <FontAwesomeIcon icon={faPencil} />
+                          &nbsp;
+                          &nbsp;
+                          <FontAwesomeIcon icon={faTrash} />
+                        </span>
+                      ) : ""}
+                    </span>
                     <div className="flex items-center gap-12">
-                      <div className="flex flex-col text-gray-400 ml-1">
+                      <div className="flex flex-col text-gray-400 text-sm ml-1">
                         {(element.download.video_format) ? (
                           <div>
                             <IconAndText icon={faVideo} text={element.labels.video_format} />
@@ -448,12 +495,7 @@ function App() {
                           </div>
                         ) : ""}
                       </div>
-                      <FontAwesomeIcon icon={faPencil} className="text-green-400 text-2xl" />
-                      <FontAwesomeIcon icon={faTrash} className="text-red-400 text-2xl" />
                     </div>
-                    {(element.progress) ? (
-                      <LinearProgress variant="determinate" color={progress_colors[element.progress.type]} value={makeProgressValue(element.progress.value)} />
-                    ) : ""}
                   </div>
                 );
               }) : ""}
@@ -461,7 +503,10 @@ function App() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setQueueOpen(false)}>Close</Button>
-            <Button color="success" onClick={() => window.api.beginDownload(queue)}>Begin download</Button>
+            <Button color="success" onClick={() => {
+              setDownloading(true);
+              window.api.beginDownload(queue.filter((q) => !q.completed));
+            }} disabled={downloading}>Begin download</Button>
           </DialogActions>
       </Dialog>
       <ToastContainer />

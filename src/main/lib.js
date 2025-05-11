@@ -124,6 +124,151 @@ export function fetchVideoData(url, store) {
   })
 }
 
+class Download {
+  constructor(video_id, video_format, audio_format, save_path, title, url, store, communicate) {
+    this.video_id = video_id;
+    if (video_format) this.video_format = video_format;
+    if (audio_format) this.audio_format = audio_format;
+    this.save_path = save_path;
+    this.title = title;
+    this.url = url;
+    this.store = store;
+    this.communicate = communicate;
+  }
+
+  makePath(container, prefix) {
+    return join(this.save_path, `${(prefix) ? `(${prefix}) ` : ""}${this.title}.${container}`);
+  }
+
+  makeFormat(type, format_id) {
+    const stored = this.store.get(this.video_id);
+    console.log(stored, this.store, this.video_id)
+
+    const stored_format = stored.formats[type].find((f) => f.id == format_id);
+
+    const progress_handler = progress_stream({
+      length: stored_format.contentLength,
+      time: 250
+    });
+
+    progress_handler.on("progress", (p) => {
+      this.communicate("download_progress", this.video_id, {
+        value: (p.transferred / stored_format.contentLength) * 100
+      });
+    });
+
+    const file_path = this.makePath(stored_format.container, type.toUpperCase());
+
+    return {
+      format: stored_format,
+      handler: progress_handler,
+      path: file_path
+    };
+  }
+  
+  downloadFormat(type, id) {
+    return new Promise((resolve) => {
+      const { format, handler, path } = this.makeFormat(type, id);
+      
+      console.log("DOWNLOADING", type, id, path);
+      ytdl(this.url, {
+        format
+      }).pipe(handler).pipe(fs.createWriteStream(path)).on("finish", () => {
+        console.log("DOWNLOADED", path);
+
+        resolve();
+      });
+    });
+  }
+
+  downloadAudio() {
+    return new Promise((resolve) => {
+      this.communicate("download_progress", this.video_id, {
+        color: "warning",
+        action: "Audio"
+      });
+
+      this.downloadFormat("audio", this.audio_format).then(() => {
+        this.communicate("download_progress", this.video_id, {
+          value: 0
+        });
+
+        resolve();
+      });
+    });
+  }
+
+  downloadVideo() {
+    return new Promise((resolve) => {
+      this.communicate("download_progress", this.video_id, {
+        color: "primary",
+        action: "Video"
+      });
+
+      this.downloadFormat("video", this.video_format).then(() => {
+        this.communicate("download_progress", this.video_id, {
+          value: 0
+        });
+
+        resolve();
+      });
+    });
+  }
+
+  mergeVideoAndAudio() {
+    return new Promise((resolve) => {
+      this.communicate("download_progress", this.video_id, {
+        color: "success"
+      });
+    });
+  }
+
+  download() {
+    console.log("DOWNLOADING", this.options);
+    return new Promise((resolve) => {
+      const finishOperation = () => this.communicate("download_progress", this.video_id, {
+        completed: true
+      });
+
+      if (this.options.only_video) {
+        this.downloadVideo().then(() => {
+          finishOperation();
+          resolve();
+        });
+      } else if (this.options.only_audio) {
+        this.downloadAudio().then(() => {
+          finishOperation();
+          resolve();
+        });
+      } else if (this.options.both) {
+        this.downloadVideo().then(() => {
+          this.downloadAudio().then(() => {
+            finishOperation();
+            resolve();
+          });
+        });
+      }
+    });
+  }
+
+  get options() {
+    const download_video = Boolean(this.video_format);
+    const download_audio = Boolean(this.audio_format);
+
+    const only_video = download_video && !download_audio;
+    const only_audio = download_audio && !download_video;
+    const both = download_video && download_audio;
+
+    return {
+      download_video,
+      download_audio,
+      only_video,
+      only_audio,
+      both
+    };
+  }
+}
+
 /**
  * Begins the download of a single file
  * @param {object} data Download data
@@ -132,138 +277,37 @@ export function fetchVideoData(url, store) {
  * @returns Promise, never resolving
  */
 
-export function beginDownload(data, store, sender) {
+export function beginDownload(data, store, communicate) {
+  console.log(data);
   return new Promise((resolve, reject) => {
-    const { video_id, title, save_path, video_format, audio_format, merge, keep_files } = data;
-
-    const stored = store.get(video_id);
-
-    const url = `https://youtube.com/watch?v=${video_id}`;
-
-    const downloadVideo = Boolean(video_format);
-    const downloadAudio = Boolean(audio_format);
-
-    const onlyDownloadVideo = downloadVideo && !downloadAudio;
-    const onlyDownloadAudio = downloadAudio && !downloadVideo;
-    const downloadBoth = downloadVideo && downloadAudio;
-
-    const makeFilePath = (format, prefix) => join(save_path, `${(prefix) ? `(${prefix}) ` : ""}${title}.${format.container}`);
-
-    const makeFormatData = (type, id) => {
-      const stored_format = stored.formats[type].find((f) => f.id == id);
-
-      const progress_handler = progress_stream({
-        length: stored_format.contentLength,
-        time: 100
-      });
-
-      progress_handler.on("progress", (p) => {
-        sender("progress", id, (p.transferred / stored_format.contentLength) * 100);
-      });
-
-      const file_path = makeFilePath(stored_format, type.toUpperCase());
-
-      return {
-        format: stored_format,
-        handler: progress_handler,
-        path: file_path
-      };
-    };
-
-    const finish = (saved_path) => {
-      sender("finish", saved_path);
-    };
-
-    function downloadFormat(format_type, format_id) {
-      return new Promise((resolve) => {
-        const format_data = makeFormatData(format_type, format_id);
-
-        ytdl(url, {
-          format: format_data.format
-        }).pipe(format_data.handler).pipe(fs.createWriteStream(format_data.path)).on("finish", () => {
-          console.log("DOWNLOADED", format_data.handler);
-
-          resolve();
-        });
-      });
-    }
+    const promises = [];
     
-    if (onlyDownloadVideo) {
-      sender("action", "Video");
+    data.forEach((video) => {
+      const { id: video_id, download: { title, save_path, video_format, audio_format, merge, keep_files } } = video;
 
-      downloadFormat("video", video_format).then(() => {
-        console.log("PROMISE RESOLVED");
+      const url = `https://youtube.com/watch?v=${video_id}`;
+
+      const download = new Download(video_id, video_format, audio_format, save_path, title, url, store, communicate);
+
+      promises.push(() => download.download());
+    });
+
+    const download_all = () => {
+      let p = Promise.resolve();
+
+      promises.forEach((promise) => {
+        p = p.then(() => promise());
       });
 
-      /*const video_data = makeFormatData("video", video_format);
+      return p;
+    };
 
+    download_all().then(() => {
+      console.log(data.length, "DOWNLOADS READY");
 
-      ytdl(url, {
-        format: video_data.format
-      }).pipe(video_data.handler).pipe(fs.createWriteStream(video_data.path)).on("finish", () => {
-        finish(video_data.path);
-      });*/
-    } else if (onlyDownloadAudio) {
-      const audio_data = makeFormatData("audio", audio_format);
+      communicate("finish_queue");
 
-      sender("color", "warning");
-      sender("action", "Audio");
-
-      ytdl(url, {
-        format: audio_data.format
-      }).pipe(audio_data.handler).pipe(fs.createWriteStream(audio_data.path)).on("finish", () => {
-        finish(audio_data.path);
-      });
-    } else if (downloadBoth) {
-      const video_data = makeFormatData("video", video_format);
-      
-      sender("action", "Video");
-      
-      ytdl(url, {
-        format: video_data.format
-      }).pipe(video_data.handler).pipe(fs.createWriteStream(video_data.path)).on("finish", () => {
-        const audio_data = makeFormatData("audio", audio_format);
-        
-        sender("color", "warning");
-        sender("progress", 0);
-        sender("action", "Audio");
-        
-        ytdl(url, {
-          format: audio_data.format
-        }).pipe(audio_data.handler).pipe(fs.createWriteStream(audio_data.path)).on("finish", () => {
-          if (merge) {
-            sender("color", "success");
-            sender("progress", 0);
-            sender("action", "Merge");
-
-            ffmpeg.setFfmpegPath(ffmse.path.replace("app.asar", "app.asar.unpacked"));
-
-            const merged_path = makeFilePath({ container: "mp4" });
-
-            ffmpeg()
-              .addInput(video_data.path)
-              .addInput(audio_data.path)
-              .addOptions(["-map 0:v", "-map 1:a", "-c:v copy"])
-              .format("mp4")
-              .on("progress", ffmpegOnProgress((p) => {
-                sender("progress", p * 100);
-              }, video_data.format.approxDurationMs))
-              .on("error", (e) => console.error(e))
-              .on("end", () => {
-                if (!keep_files) {
-                  fs.unlink(video_data.path, () => {
-                    fs.unlink(audio_data.path, () => {
-                      finish(merged_path);
-                    });
-                  });
-                } else finish(merged_path);
-              })
-              .saveToFile(merged_path);
-          } else finish(video_data.path);
-        });
-      });
-    }
-
-    resolve();
+      resolve();
+    });
   });
 }
