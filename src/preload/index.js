@@ -7,7 +7,7 @@ const api = {
   fetchData: (url) => ipcRenderer.invoke("fetchData", url),
   openDirectory: () => ipcRenderer.invoke("openDirectory"),
   showItemInFolder: (path) => ipcRenderer.invoke("showItemInFolder", path),
-  beginDownload: (data) => ipcRenderer.invoke("beginDownload", data),
+  beginDownload: (queue) => ipcRenderer.invoke("beginDownload", queue),
   listenToMain: (event, callback) => ipcRenderer.on(event, (e, ...args) => callback(...args)),
   clearStore: () => ipcRenderer.invoke("clearStore"),
   openLink: (link) => ipcRenderer.invoke("openLink", link)

@@ -50,7 +50,7 @@ app.whenReady().then(() => {
   
   ipcMain.handle("fetchData", (e, url) => fetchVideoData(url, store));
 
-  ipcMain.handle("beginDownload", (e, data) => beginDownload(data, store, sender, process.resourcesPath));
+  ipcMain.handle("beginDownload", (e, queue) => beginDownload(queue, store, sender));
 
   ipcMain.handle("openDirectory", async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(window, {

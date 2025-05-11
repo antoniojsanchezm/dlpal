@@ -105,13 +105,13 @@ export function fetchVideoData(url, store) {
           video: video_formats.map((f) => {
             return {
               id: f.id,
-              label: `${f.qualityLabel} - ${convertBits(f.bitrate).kb}kbps - ${convertFileSize(f.contentLength)} (.${f.container})`
+              label: `${f.qualityLabel} @ ${convertBits(f.bitrate).kb}kbps (${convertFileSize(f.contentLength)}) (.${f.container})`
             };
           }),
           audio: audio_formats.map((f) => {
             return {
               id: f.id,
-              label: `${convertHz(f.audioSampleRate, 1).khz}kHz - ${f.audioBitrate}kbps - ${convertFileSize(f.contentLength)} (.${f.container})`
+              label: `${convertHz(f.audioSampleRate, 1).khz}kHz @ ${f.audioBitrate}kbps (${convertFileSize(f.contentLength)}) (.${f.container})`
             };
           })
         }
@@ -158,7 +158,7 @@ export function beginDownload(data, store, sender) {
       });
 
       progress_handler.on("progress", (p) => {
-        sender("progress", (p.transferred / stored_format.contentLength) * 100);
+        sender("progress", id, (p.transferred / stored_format.contentLength) * 100);
       });
 
       const file_path = makeFilePath(stored_format, type.toUpperCase());
@@ -173,17 +173,36 @@ export function beginDownload(data, store, sender) {
     const finish = (saved_path) => {
       sender("finish", saved_path);
     };
+
+    function downloadFormat(format_type, format_id) {
+      return new Promise((resolve) => {
+        const format_data = makeFormatData(format_type, format_id);
+
+        ytdl(url, {
+          format: format_data.format
+        }).pipe(format_data.handler).pipe(fs.createWriteStream(format_data.path)).on("finish", () => {
+          console.log("DOWNLOADED", format_data.handler);
+
+          resolve();
+        });
+      });
+    }
     
     if (onlyDownloadVideo) {
-      const video_data = makeFormatData("video", video_format);
-
       sender("action", "Video");
+
+      downloadFormat("video", video_format).then(() => {
+        console.log("PROMISE RESOLVED");
+      });
+
+      /*const video_data = makeFormatData("video", video_format);
+
 
       ytdl(url, {
         format: video_data.format
       }).pipe(video_data.handler).pipe(fs.createWriteStream(video_data.path)).on("finish", () => {
         finish(video_data.path);
-      });
+      });*/
     } else if (onlyDownloadAudio) {
       const audio_data = makeFormatData("audio", audio_format);
 
