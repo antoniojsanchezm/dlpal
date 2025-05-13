@@ -1,4 +1,4 @@
-import { faBox, faCheckCircle, faCut, faDownload, faFileDownload, faLink, faListCheck, faPencil, faRepeat, faScroll, faTrash, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
+import { faBox, faCheckCircle, faCut, faDiceFour, faDiceThree, faDownload, faFileDownload, faLink, faListCheck, faPencil, faRepeat, faScroll, faTrash, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, FormControl, FormGroup, InputLabel, LinearProgress, MenuItem, Select, TextField } from "@mui/material";
 import { useEffect, useReducer, useState } from "react";
 import { CircularProgressbarWithChildren } from "react-circular-progressbar";
@@ -75,19 +75,22 @@ const queueDispatchTypes = {
   ADD: "add",
   DELETE: "delete",
   EDIT: "edit",
-  PROGRESS: "progress"
+  PROGRESS: "progress",
+  CLEAR: "clear"
 };
 
 function queueReducer(state, action) {
   const reduced = ((state, action) => {
     const { type } = action;
-    const { ADD, DELETE, EDIT, PROGRESS } = queueDispatchTypes; // Destructuring the types for better readability
+    const { ADD, DELETE, EDIT, PROGRESS, CLEAR } = queueDispatchTypes; // Destructuring the types for better readability
 
     if (type == ADD) {
       const { payload } = action;
 
       return [...state, payload];
     }
+
+    if (type == CLEAR) return [];
 
     if (type == EDIT) {
       const { id, payload } = action;
@@ -152,7 +155,6 @@ function queueReducer(state, action) {
  */
 
 function makeProgressValue(progress, modifier) {
-  console.log(progress)
   if (!progress || progress < 0) return 0;
   else {
     if (progress > 100) return 100;
@@ -180,10 +182,8 @@ function App() {
   const [get_audio, setGetAudio] = useState(true);
   const [get_merge, setGetMerge] = useState(true);
   const [get_keep, setGetKeep] = useState(false);
-
-  const initial_progress_value = 0;
-  const initial_progress_color = "secondary";
-  const initial_progress_action = "";
+  const [get_mp4, setGetMP4] = useState(true);
+  const [get_mp3, setGetMP3] = useState(true);
 
   const progress_colors = {
     primary: "144, 202, 249",
@@ -194,25 +194,25 @@ function App() {
     success: "102, 187, 106",
   };
 
-  useEffect(() => {
-    console.log(video_data)
-  }, [video_data]);
-
   const [downloading, setDownloading] = useState(false);
-  const [progress_value, setProgressValue] = useState(initial_progress_value);
-  const [progress_color, setProgressColor] = useState(initial_progress_color);
-  const [progress_action, setProgressAction] = useState(initial_progress_action);
 
   const [disclaimer_open, setDisclaimerOpen] = useState(false);
 
   const [queue, queueDispatch] = useReducer(queueReducer, []);
   const [queue_open, setQueueOpen] = useState(false);
 
+  const getFormat = (type, id) => {
+    if (video_data) {
+      return video_data.formats[type].find((f) => f.id == id);
+    }
+  };
+
   useEffect(() => {
     // TODO: Option for chapters
     // TODO: Option for converting audio/video to a specific format
     // TODO: Option for playlists
-    // TODO: Add queue feature
+
+    // TODO: REMOVE THE ABILITY TO CREATE MULTIPLE DOWNLOADS OF A VIDEO, OR MAKE THE DOWNLOAD WITH NANOID()
 
     if (!first_render_made) { // Avoid event listener event leak (multiple listeners because of the re-rendering of React's strict mode)
       window.api.listenToMain("download_progress", (id, progress) => {
@@ -223,24 +223,20 @@ function App() {
         });
       });
 
-      window.api.listenToMain("finish_queue", () => setDownloading(false));
-
-      /*window.api.listenToMain("finish", (saved_path) => {
-        setDownloading(false);
-        setProgressValue(initial_progress_value);
-        setProgressColor(initial_progress_color);
-        setProgressAction("");
-
+      window.api.listenToMain("finish_queue", (downloads) => {
         toast(SuccessToast, {
           position: "bottom-right",
+          autoClose: 5000,
           hideProgressBar: true,
           closeOnClick: true,
           pauseOnHover: true,
-          draggable: false,
-          theme: "dark",
-          onClick: () => window.api.showItemInFolder(saved_path)
+          draggable: true,
+          progress: undefined,
+          theme: "dark"
         });
-      });*/
+
+        setDownloading(false);
+      });
 
       setFirstRenderMade(true);
     }
@@ -258,36 +254,38 @@ function App() {
               type: dataFetchTypes.SET_URL,
               input: e.target.value
             })} disabled={downloading || Boolean(video_data)} />
-            <Button variant="contained" className={`${(data_fetch_state.url.error) ? "invisible" : ""}`} loading={data_fetch_state.loading} onClick={() => {
-              dataFetchDispatch({
-                type: dataFetchTypes.ON_LOADING
-              });
-
-              window.api.fetchData(data_fetch_state.url.input).then((data) => {
+            {(!data_fetch_state.url.error) ? (
+              <Button variant="contained" loading={data_fetch_state.loading} onClick={() => {
                 dataFetchDispatch({
-                  type: dataFetchTypes.OFF_LOADING
+                  type: dataFetchTypes.ON_LOADING
                 });
 
-                if (data.error) {
-                  if (data.error.match(/private video/g)) return dataFetchDispatch({
-                    type: dataFetchTypes.FETCH_ERROR,
-                    error: "dlpal can not download private videos"
+                window.api.fetchData(data_fetch_state.url.input).then((data) => {
+                  dataFetchDispatch({
+                    type: dataFetchTypes.OFF_LOADING
                   });
 
-                  return dataFetchDispatch({
-                    type: dataFetchTypes.FETCH_ERROR,
-                    error: "dlpal can not download this video"
-                  });
-                } else {
-                  setSelectedVideoFormat(data.formats.video[0].id);
-                  setSelectedAudioFormat(data.formats.audio[0].id);
-  
-                  setVideoData(data);
-                }
-              });
-            }} disabled={downloading || Boolean(video_data)}>
-              <IconAndText icon={faDownload} text="Fetch" />
-            </Button>
+                  if (data.error) {
+                    if (data.error.match(/private video/g)) return dataFetchDispatch({
+                      type: dataFetchTypes.FETCH_ERROR,
+                      error: "dlpal can not download private videos"
+                    });
+
+                    return dataFetchDispatch({
+                      type: dataFetchTypes.FETCH_ERROR,
+                      error: "dlpal can not download this video"
+                    });
+                  } else {
+                    setSelectedVideoFormat(data.formats.video[0].id);
+                    setSelectedAudioFormat(data.formats.audio[0].id);
+    
+                    setVideoData(data);
+                  }
+                });
+              }} disabled={downloading || Boolean(video_data)}>
+                <IconAndText icon={faDownload} text="Fetch" />
+              </Button>
+            ) : ""}
             {(video_data) ? (
               <>
                 <Button variant="contained" color="error" onClick={async () => {
@@ -297,15 +295,23 @@ function App() {
                   });
                   
                   setVideoData(null);
+                  setGetVideo(true);
+                  setGetAudio(true);
+                  setGetMerge(true);
+                  setGetKeep(false);
+                  setGetMP4(true);
+                  setGetMP3(true);
                 }} disabled={downloading}>
                   <IconAndText icon={faRepeat} text="Reset" />
                 </Button>
               </>
             ) : ""}
             {(queue.length > 0) ? (
-              <Button variant="contained" color="secondary" onClick={() => setQueueOpen(true)}>
-                <IconAndText icon={faListCheck} text={`Queue`} />
-              </Button>
+              <div className={`${(data_fetch_state.url.error) ? "mb-7" : ""}`} >
+                <Button variant="contained" color="secondary" onClick={() => setQueueOpen(true)}>
+                  <IconAndText icon={faListCheck} text={`Queue`} />
+                </Button>
+              </div>
             ) : ""}
           </div>
           {
@@ -369,33 +375,29 @@ function App() {
                               labels: {}
                             };
 
-                            const getFormat = (type, id) => video_data.formats[type].find((f) => f.id == id);
-
                             if (get_video) {
                               const format = getFormat("video", selected_video_format);
 
-                              payload.download.video_format = selected_video_format;
-
                               if (format) payload.labels.video_format = format.label;
+
+                              payload.download.video_format = selected_video_format;
+                              payload.download.video_to_mp4 = get_mp4;
                             } if (get_audio) {
                               const format = getFormat("audio", selected_audio_format);
 
-                              payload.download.audio_format = selected_audio_format;
-
                               if (format) payload.labels.audio_format = format.label;
+
+                              payload.download.audio_format = selected_audio_format;
+                              payload.download.audio_to_mp3 = get_mp3;
                             }
 
                             queueDispatch({
                               type: queueDispatchTypes.ADD,
                               payload
                             });
-
-                            //setDownloading(true)
-
-                            //await window.api.beginDownload(download_data);
                           }
                         });
-                      }} disabled={downloading}>
+                      }} disabled={downloading || queue.some((q) => video_data && q.id == video_data.id)}>
                         <IconAndText icon={faListCheck} text={(<>&nbsp;ADD TO QUEUE</>)} />
                       </Button>
                     ) : ""}
@@ -403,7 +405,29 @@ function App() {
                   <div className="flex flex-col gap-4 mt-6">
                     <FormGroup>
                       <Toggler checked={get_video} changeHook={setGetVideo} disabled={downloading} icon={faVideo} label="Download video" />
+                      {(get_video && (!get_audio || !get_merge)) ? (() => {
+                        if (video_data && video_data.format) return "";
+
+                        const format = getFormat("video", selected_video_format);
+
+                        if (!format || format.container.toLowerCase() == "mp4") return "";
+
+                        return (
+                          <Toggler checked={get_mp4} changeHook={setGetMP4} disabled={downloading} icon={faDiceFour} label="Convert video to MP4" />
+                        );
+                      })() : ""}
                       <Toggler checked={get_audio} changeHook={setGetAudio} disabled={downloading} icon={faVolumeHigh} label="Download audio" />
+                      {(get_audio && (!get_video || !get_merge)) ? (() => {
+                        if (video_data && video_data.format) return "";
+
+                        const format = getFormat("audio", selected_audio_format);
+
+                        if (!format || format.container.toLowerCase() == "mp3") return "";
+
+                        return (
+                          <Toggler checked={get_mp3} changeHook={setGetMP3} disabled={downloading} icon={faDiceThree} label="Convert audio to MP3" />
+                        );
+                      })() : ""}
                       {(get_video && get_audio) ? (
                         <Toggler checked={get_merge} changeHook={setGetMerge} disabled={downloading} icon={faCut} label="Merge video and audio" />
                       ) : ""}
@@ -444,56 +468,66 @@ function App() {
       <Dialog maxWidth="xl" open={queue_open} onClose={() => setQueueOpen(false)}>
           <DialogTitle>Queue ({queue.length})</DialogTitle>
           <DialogContent>
-            <DialogContentText className="grid grid-cols-2 gap-4">
+            <DialogContentText className={`${(queue.length > 1) ? "grid grid-cols-2 gap-4" : ""}`}>
               {(queue.length > 0) ? queue.map((element) => {
                 return (
-                  <div className={`flex flex-col gap-2 w-full ${(element.progress) ? (element.progress.completed) ? "bg-green-900" : "bg-gray-600" : "bg-gray-600"} text-white p-3 rounded-lg`}>
-                    <div className="flex items-center gap-4">
-                      <img src={element.thumbnail} className="rounded-xl w-28" alt="" />
-                      {(element.progress) ? (
-                        <div className="w-16">
-                          <CircularProgressbarWithChildren styles={{
-                            path: {
-                              stroke: `rgba(${(!element.progress.completed) ? progress_colors[element.progress.color] : progress_colors.success}, 1)`
-                            }
-                          }} value={(!element.progress.completed) ? makeProgressValue(element.progress.value) : 100}>
-                            {(!element.progress.completed) ? (
-                              <>
-                                <span>{makeProgressValue(element.progress.value, (v) => v.toFixed(0))}%</span>
-                                <span className="text-xs">{element.progress.action}</span>
-                              </>
-                            ) : (
-                              <span className="text-xl text-green-400"><FontAwesomeIcon icon={faCheckCircle} /></span>
-                            )}
-                          </CircularProgressbarWithChildren>
+                  <div key={element.id} className={`flex items-center ${(element.progress) ? (element.progress.completed) ? "bg-green-900" : "bg-gray-600" : "bg-gray-600"} ${(element.progress) ? (element.progress.saved_at && element.progress.completed) ? "hover:bg-[#0a4322]" : "" : ""} text-white p-3 rounded-lg`} onClick={async () => {
+                    if (element.progress && element.progress.completed && element.progress.saved_at) {
+                      await window.api.showItemInFolder(element.progress.saved_at);
+                    }
+                  }}>
+                    <div className="flex flex-col gap-2 w-full">
+                      <div className="flex items-center gap-4">
+                        <img src={element.thumbnail} className="rounded-xl w-28" alt="" />
+                        {(element.progress) ? (
+                          <div className="w-16">
+                            <CircularProgressbarWithChildren styles={{
+                              path: {
+                                stroke: `rgba(${(!element.progress.completed) ? progress_colors[element.progress.color] : progress_colors.success}, 1)`
+                              }
+                            }} value={(!element.progress.completed) ? makeProgressValue(element.progress.value) : 100}>
+                              {(!element.progress.completed) ? (
+                                <>
+                                  <span>{makeProgressValue(element.progress.value, (v) => v.toFixed(0))}%</span>
+                                  <span className="text-xs">{element.progress.action}</span>
+                                </>
+                              ) : (
+                                <span className="text-xl text-green-400"><FontAwesomeIcon icon={faCheckCircle} /></span>
+                              )}
+                            </CircularProgressbarWithChildren>
+                          </div>
+                        ) : ""}
+                      </div>
+                      <span className="text-lg mt-1">
+                        {truncate(element.title, 28)}
+                        {(!downloading) ? (
+                          <span className="text-gray-400">
+                            &nbsp;
+                            &nbsp;
+                            <FontAwesomeIcon icon={faTrash} className="hover:text-gray-500" onClick={() => {
+                              if (queue.length == 1) setQueueOpen(false);
+
+                              queueDispatch({
+                                type: queueDispatchTypes.DELETE,
+                                id: element.id
+                              });
+                            }} />
+                          </span>
+                        ) : ""}
+                      </span>
+                      <div className="flex items-center gap-12">
+                        <div className="flex flex-col text-gray-400 text-sm ml-1">
+                          {(element.download.video_format) ? (
+                            <div>
+                              <IconAndText icon={faVideo} text={element.labels.video_format} />
+                            </div>
+                          ) : ""}
+                          {(element.download.audio_format) ? (
+                            <div>
+                              <IconAndText icon={faVolumeHigh} text={element.labels.audio_format} />
+                            </div>
+                          ) : ""}
                         </div>
-                      ) : ""}
-                    </div>
-                    <span className="text-lg mt-1">
-                      {truncate(element.title, 28)}
-                      {(!downloading) ? (
-                        <span className="text-gray-400">
-                          &nbsp;
-                          &nbsp;
-                          <FontAwesomeIcon icon={faPencil} />
-                          &nbsp;
-                          &nbsp;
-                          <FontAwesomeIcon icon={faTrash} />
-                        </span>
-                      ) : ""}
-                    </span>
-                    <div className="flex items-center gap-12">
-                      <div className="flex flex-col text-gray-400 text-sm ml-1">
-                        {(element.download.video_format) ? (
-                          <div>
-                            <IconAndText icon={faVideo} text={element.labels.video_format} />
-                          </div>
-                        ) : ""}
-                        {(element.download.audio_format) ? (
-                          <div>
-                            <IconAndText icon={faVolumeHigh} text={element.labels.audio_format} />
-                          </div>
-                        ) : ""}
                       </div>
                     </div>
                   </div>
@@ -502,10 +536,17 @@ function App() {
             </DialogContentText>
           </DialogContent>
           <DialogActions>
+            <Button color="error" onClick={() => {
+              setQueueOpen(false);
+              
+              queueDispatch({
+                type: queueDispatchTypes.CLEAR
+              });
+            }} disabled={downloading}>Clear</Button>
             <Button onClick={() => setQueueOpen(false)}>Close</Button>
             <Button color="success" onClick={() => {
               setDownloading(true);
-              window.api.beginDownload(queue.filter((q) => !q.completed));
+              window.api.beginDownload(queue.filter((q) => !(q.progress && q.progress.completed)));
             }} disabled={downloading}>Begin download</Button>
           </DialogActions>
       </Dialog>

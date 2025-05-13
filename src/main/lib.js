@@ -105,12 +105,14 @@ export function fetchVideoData(url, store) {
           video: video_formats.map((f) => {
             return {
               id: f.id,
+              container: f.container,
               label: `${f.qualityLabel} @ ${convertBits(f.bitrate).kb}kbps (${convertFileSize(f.contentLength)}) (.${f.container})`
             };
           }),
           audio: audio_formats.map((f) => {
             return {
               id: f.id,
+              container: f.container,
               label: `${convertHz(f.audioSampleRate, 1).khz}kHz @ ${f.audioBitrate}kbps (${convertFileSize(f.contentLength)}) (.${f.container})`
             };
           })
@@ -124,13 +126,27 @@ export function fetchVideoData(url, store) {
   })
 }
 
+export function promisesAtOnce(promises) {
+  let p = Promise.resolve();
+
+  promises.forEach((promise) => {
+    p = p.then(() => promise());
+  });
+
+  return p;
+}
+
 class Download {
-  constructor(video_id, video_format, audio_format, save_path, title, url, store, communicate) {
+  constructor({ id: video_id, download: { video_format, audio_format, save_path, title, merge, keep_files, video_to_mp4, audio_to_mp3 } }, url, store, communicate) {
     this.video_id = video_id;
     if (video_format) this.video_format = video_format;
     if (audio_format) this.audio_format = audio_format;
     this.save_path = save_path;
     this.title = title;
+    this.merge = merge;
+    this.keep_files = keep_files;
+    this.video_to_mp4 = video_to_mp4;
+    this.audio_to_mp3 = audio_to_mp3;
     this.url = url;
     this.store = store;
     this.communicate = communicate;
@@ -142,7 +158,6 @@ class Download {
 
   makeFormat(type, format_id) {
     const stored = this.store.get(this.video_id);
-    console.log(stored, this.store, this.video_id)
 
     const stored_format = stored.formats[type].find((f) => f.id == format_id);
 
@@ -152,12 +167,16 @@ class Download {
     });
 
     progress_handler.on("progress", (p) => {
-      this.communicate("download_progress", this.video_id, {
+      this.communicate("download_progress", this.video_id, { // merge this with this.resetProgress() to this.setProgress()
         value: (p.transferred / stored_format.contentLength) * 100
       });
     });
 
-    const file_path = this.makePath(stored_format.container, type.toUpperCase());
+    let prefix = undefined;
+    
+    if ((this.options.both && !this.options.merge) || this.audio_to_mp3 || this.video_to_mp4) prefix = type.toUpperCase();
+
+    const file_path = this.makePath(stored_format.container, type.toUpperCase(), prefix);
 
     return {
       format: stored_format,
@@ -165,18 +184,27 @@ class Download {
       path: file_path
     };
   }
+
+  resetProgress() {
+    this.communicate("download_progress", this.video_id, {
+      value: 0
+    });
+  }
+
+  getFormat(type, id) {
+    const stored = this.store.get(this.video_id);
+
+    return stored.formats[type].find((f) => f.id == id);
+  }
   
   downloadFormat(type, id) {
     return new Promise((resolve) => {
       const { format, handler, path } = this.makeFormat(type, id);
       
-      console.log("DOWNLOADING", type, id, path);
       ytdl(this.url, {
         format
       }).pipe(handler).pipe(fs.createWriteStream(path)).on("finish", () => {
-        console.log("DOWNLOADED", path);
-
-        resolve();
+        resolve(path);
       });
     });
   }
@@ -188,12 +216,10 @@ class Download {
         action: "Audio"
       });
 
-      this.downloadFormat("audio", this.audio_format).then(() => {
-        this.communicate("download_progress", this.video_id, {
-          value: 0
-        });
+      this.downloadFormat("audio", this.audio_format).then((path) => {
+        this.resetProgress();
 
-        resolve();
+        resolve(path);
       });
     });
   }
@@ -205,46 +231,143 @@ class Download {
         action: "Video"
       });
 
-      this.downloadFormat("video", this.video_format).then(() => {
-        this.communicate("download_progress", this.video_id, {
-          value: 0
-        });
+      this.downloadFormat("video", this.video_format).then((path) => {
+        this.resetProgress();
 
-        resolve();
+        resolve(path);
       });
     });
   }
 
-  mergeVideoAndAudio() {
+  convertFileTo(path, format, container) {
     return new Promise((resolve) => {
       this.communicate("download_progress", this.video_id, {
-        color: "success"
+        color: "secondary",
+        action: "Conv"
       });
+
+      ffmpeg.setFfmpegPath(ffmse.path.replace("app.asar", "app.asar.unpacked"));
+
+      const new_path = this.makePath(container);
+
+      ffmpeg()
+      .addInput(path)
+      .format(container)
+      .on("progress", ffmpegOnProgress((p) => {
+        this.communicate("download_progress", this.video_id, {
+          value: p * 100
+        });
+      }, format.approxDurationMs))
+      .on("error", (e) => console.error(e))
+      .on("end", () => {
+        fs.unlink(path, () => {
+          resolve(new_path);
+        });
+      })
+      .saveToFile(new_path);
+    });
+  }
+
+  mergeVideoAndAudio(vpath, apath, vformat) {
+    return new Promise((resolve) => {
+      this.communicate("download_progress", this.video_id, {
+        color: "info",
+        action: "Merge"
+      });
+
+      ffmpeg.setFfmpegPath(ffmse.path.replace("app.asar", "app.asar.unpacked"));
+
+      const merged_path = this.makePath("mp4");
+
+      ffmpeg()
+      .addInput(vpath)
+      .addInput(apath)
+      .addOptions(["-map 0:v", "-map 1:a", "-c:v copy"])
+      .format("mp4")
+      .on("progress", ffmpegOnProgress((p) => {
+        this.communicate("download_progress", this.video_id, {
+          value: p * 100
+        });
+      }, vformat.approxDurationMs))
+      .on("error", (e) => console.error(e))
+      .on("end", () => {
+        if (!this.keep_files) {
+          fs.unlink(vpath, () => {
+            fs.unlink(apath, () => {
+              resolve(merged_path);
+            });
+          });
+        } else resolve(merged_path);
+      })
+      .saveToFile(merged_path);
     });
   }
 
   download() {
-    console.log("DOWNLOADING", this.options);
     return new Promise((resolve) => {
-      const finishOperation = () => this.communicate("download_progress", this.video_id, {
-        completed: true
+      const finishOperation = (path) => this.communicate("download_progress", this.video_id, {
+        completed: true,
+        saved_at: path
       });
 
       if (this.options.only_video) {
-        this.downloadVideo().then(() => {
-          finishOperation();
-          resolve();
+        this.downloadVideo().then((path) => {
+          if (this.video_to_mp4) {
+            const vformat = this.getFormat("video", this.video_format);
+
+            this.convertFileTo(path, vformat, "mp4").then((new_path) => {
+              finishOperation(new_path);
+              resolve();
+            });
+          } else {
+            finishOperation(path);
+            resolve();
+          }
         });
       } else if (this.options.only_audio) {
-        this.downloadAudio().then(() => {
-          finishOperation();
-          resolve();
+        this.downloadAudio().then((path) => {
+          if (this.audio_to_mp3) {
+            const aformat = this.getFormat("audio", this.audio_format);
+
+            this.convertFileTo(path, aformat, "mp3").then((new_path) => {
+              finishOperation(new_path);
+              resolve();
+            });
+          } else {
+            finishOperation(path);
+            resolve();
+          }
         });
       } else if (this.options.both) {
-        this.downloadVideo().then(() => {
-          this.downloadAudio().then(() => {
-            finishOperation();
-            resolve();
+        this.downloadVideo().then((vpath) => {
+          this.downloadAudio().then((apath) => {
+            if (this.merge) {
+              const vformat = this.getFormat("video", this.video_format);
+
+              this.mergeVideoAndAudio(vpath, apath, vformat).then((mpath) => {
+                finishOperation(mpath);
+                resolve();
+              });
+            } else {
+              const promises = [];
+
+              if (this.audio_to_mp3) {
+                const aformat = this.getFormat("audio", this.audio_format);
+
+                if (vformat.container != "mp3") promises.push(() => this.convertFileTo(apath, aformat, "mp3"));
+              }
+
+              if (this.video_to_mp4) {
+                const vformat = this.getFormat("video", this.video_format);
+
+                if (vformat.container != "mp4") promises.push(() => this.convertFileTo(vpath, vformat, "mp4"));
+              }
+
+              promisesAtOnce(promises).then((last_path) => {
+                finishOperation(last_path);
+                resolve();
+              });
+            }
           });
         });
       }
@@ -278,34 +401,20 @@ class Download {
  */
 
 export function beginDownload(data, store, communicate) {
-  console.log(data);
   return new Promise((resolve, reject) => {
     const promises = [];
     
     data.forEach((video) => {
-      const { id: video_id, download: { title, save_path, video_format, audio_format, merge, keep_files } } = video;
+      const url = `https://youtube.com/watch?v=${video.id}`;
 
-      const url = `https://youtube.com/watch?v=${video_id}`;
-
-      const download = new Download(video_id, video_format, audio_format, save_path, title, url, store, communicate);
+      const download = new Download(video, url, store, communicate);
 
       promises.push(() => download.download());
     });
 
-    const download_all = () => {
-      let p = Promise.resolve();
 
-      promises.forEach((promise) => {
-        p = p.then(() => promise());
-      });
-
-      return p;
-    };
-
-    download_all().then(() => {
-      console.log(data.length, "DOWNLOADS READY");
-
-      communicate("finish_queue");
+    promisesAtOnce(promises).then(() => {
+      communicate("finish_queue", data.length);
 
       resolve();
     });
