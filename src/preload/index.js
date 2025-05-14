@@ -5,7 +5,7 @@ import { ipcRenderer } from "electron/renderer";
 // Custom APIs for renderer
 const api = {
   fetchData: (url) => ipcRenderer.invoke("fetchData", url),
-  openDirectory: () => ipcRenderer.invoke("openDirectory"),
+  openDirectory: (path) => ipcRenderer.invoke("openDirectory", path),
   showItemInFolder: (path) => ipcRenderer.invoke("showItemInFolder", path),
   beginDownload: (queue) => ipcRenderer.invoke("beginDownload", queue),
   listenToMain: (event, callback) => ipcRenderer.on(event, (e, ...args) => callback(...args)),

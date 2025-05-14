@@ -19,6 +19,8 @@ function createWindow() {
     }
   });
 
+  main_window.removeMenu();
+
   main_window.on("ready-to-show", () => main_window.show());
 
   main_window.webContents.setWindowOpenHandler((details) => {
@@ -52,10 +54,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle("beginDownload", (e, queue) => beginDownload(queue, store, communicate));
 
-  ipcMain.handle("openDirectory", async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog(window, {
+  ipcMain.handle("openDirectory", async (path) => {
+    const options = {
       properties: ["openDirectory"]
-    });
+    };
+
+    // if (path) options.defaultPath = path;
+
+    const { canceled, filePaths } = await dialog.showOpenDialog(window, options);
 
     if (canceled) return;
     else return filePaths[0];

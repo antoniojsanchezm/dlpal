@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import DLPalContextProvider from "./contexts/DLPalContext";
 
 import "./assets/main.css";
 
@@ -26,8 +27,12 @@ const darkTheme = createTheme({
 });
 
 ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
-      <App />
+      <DLPalContextProvider>
+        <App />
+      </DLPalContextProvider>
     </ThemeProvider>
+  </React.StrictMode>
 );
