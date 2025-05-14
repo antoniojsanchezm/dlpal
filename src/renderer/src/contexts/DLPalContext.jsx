@@ -1,4 +1,5 @@
 import getVideoId from "get-video-id";
+import { omit } from "lodash";
 import { createContext, useEffect, useReducer, useState } from "react";
 
 export const progress_colors = {
@@ -94,13 +95,13 @@ function queueReducer(state, action) {
   if (type == EDIT) {
     const { id, payload } = action;
 
-    const element = state.find((s) => s.id == id);
+    const element = state.find((s) => s.data.id == id);
 
     if (element) {
-      const excluded = state.filter((s) => s.id != id);
+      const excluded = state.filter((s) => s.data.id != id);
 
       const modified = [...excluded, {
-        ...element,
+        position: element.position,
         ...payload
       }];
 
@@ -113,10 +114,10 @@ function queueReducer(state, action) {
   if (type == PROGRESS) {
     const { id, progress } = action; 
 
-    const element = state.find((s) => s.id == id);
+    const element = state.find((s) => s.data.id == id);
 
     if (element) {
-      const excluded = state.filter((s) => s.id != id);
+      const excluded = state.filter((s) => s.data.id != id);
 
       const modified = [...excluded, {
         ...element,
@@ -135,7 +136,7 @@ function queueReducer(state, action) {
   if (type == DELETE) {
     const { id } = action;
 
-    return state.filter((s) => s.id != id);
+    return state.filter((s) => s.data.id != id);
   }
 
   return state;
@@ -168,7 +169,7 @@ function videoDataReducer(state, action) {
   if (type == REPLACE) {
     const { payload } = action;
 
-    return payload;
+    return omit(payload, ["progress", "position", "labels"]);
   }
 
   if (type == SET_SWITCHES) {
@@ -237,13 +238,15 @@ function videoDataReducer(state, action) {
   return state;
 }
 
+const log_reducers = false;
+
 function logReducer(fn) {
   return (...args) => {
-    console.log("BEFORE", args);
+    if (log_reducers) console.log("BEFORE", args);
 
     const result = fn(...args);
 
-    console.log("AFTER", result);
+    if (log_reducers) console.log("AFTER", result);
 
     return result;
   }; 
@@ -267,8 +270,12 @@ export default function DLPalContextProvider({ children }) {
   const [queue_open, setQueueOpen] = useState(false);
   const [edit_mode, setEditMode] = useState(false);
 
+  const [disclaimer_open, setDisclaimerOpen] = useState(false);
+
   const [downloading, setDownloading] = useState(false);
   const [first_render_made, setFirstRenderMade] = useState(false);
+
+  const [show_toast, setShowToast] = useState(false);
   
   useEffect(() => {
     // TODO: Option for chapters
@@ -284,7 +291,8 @@ export default function DLPalContextProvider({ children }) {
       });
 
       window.api.listenToMain("finish_queue", (downloads) => {
-        // TODO: popToast();
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5 * 1000);
 
         setDownloading(false);
       });
@@ -306,7 +314,10 @@ export default function DLPalContextProvider({ children }) {
       edit_mode,
       setEditMode,
       downloading,
-      setDownloading
+      setDownloading,
+      disclaimer_open,
+      setDisclaimerOpen,
+      show_toast
     }}>
       {children}
     </DLPalContext.Provider>

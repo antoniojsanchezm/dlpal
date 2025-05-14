@@ -1,14 +1,14 @@
 import { Button, FormControl, FormGroup, InputLabel, MenuItem, Select } from "@mui/material";
 import IconAndText from "../IconAndText";
 import Toggler from "../Toggler";
-import { faBox, faCut, faDiceFour, faDiceThree, faListCheck, faScroll, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
+import { faBox, faCut, faDiceFour, faDiceThree, faFloppyDisk, faListCheck, faScroll, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
 import { useContext } from "react";
 import { DLPalContext, queueDispatchTypes, videoDataReducerTypes } from "../../contexts/DLPalContext";
 import isEmpty from "is-empty";
 import { getFormat } from "../../lib";
 
 export default function PanelSection() {
-  const { queue, data, data_fetch, queueDispatch, dataDispatch, downloading, edit_mode, setQueueOpen } = useContext(DLPalContext);
+  const { queue, data, queueDispatch, dataDispatch, downloading, edit_mode, setEditMode } = useContext(DLPalContext);
 
   return (
     <>
@@ -75,6 +75,9 @@ export default function PanelSection() {
                       if (path) {
                         const payload = {
                           ...data,
+                          options: {
+                            save_path: path,
+                          },
                           labels: {}
                         };
 
@@ -85,34 +88,42 @@ export default function PanelSection() {
 
                           if (!data?.switches?.merge && format.container != "mp4") payload.switches.video_to_mp4 = data?.switches?.video_to_mp4;
                           else payload.switches.video_to_mp4 = false;
-                        } if (data?.switches?.audio) {
+                        } else payload.switches.video_to_mp4 = false;
+
+                        if (data?.switches?.audio) {
                           const format = getFormat("audio", data?.formats?.audio, data?.data);
 
                           payload.labels.audio = format.label;
 
                           if (!data?.switches?.merge && format.container != "mp3") payload.switches.audio_to_mp3 = data?.switches?.audio_to_mp3;
                           else payload.switches.audio_to_mp3 = false;
-                        } if (!data?.switches?.merge && data?.switches?.keep_files) payload.switches.keep_files = false;
+                        } else payload.switches.audio_to_mp3 = false;
+                        
+                        if (!data?.switches?.merge && data?.switches?.keep_files) payload.switches.keep_files = false;
 
-                        queueDispatch({
-                          type: queueDispatchTypes.ADD,
-                          payload: {
-                            position: (queue.length + 1),
-                            ...payload
-                          }
-                        });
+                        const only_video = data?.switches?.video && !data?.switches?.audio;
+                        const only_audio = data?.switches?.audio && !data?.switches?.video;
+
+                        if ((only_video || only_audio) && data?.switches?.merge) payload.switches.merge = false;
+
+                        const dispatch = {
+                          type: (edit_mode) ? queueDispatchTypes.EDIT : queueDispatchTypes.ADD,
+                          payload
+                        };
+
+                        if (edit_mode) {
+                          dispatch.id = data?.data?.id;
+                          setEditMode(false);
+                        } else {
+                          dispatch.payload.position = (queue.length + 1);
+                        }
+
+                        queueDispatch(dispatch);
                       }
                     });
-                  }} disabled={downloading || (queue.some((q) => !isEmpty(data?.data) && q.id == data?.data?.id) && !edit_mode)}>
-                    <IconAndText icon={faListCheck} text={(<>&nbsp;{(!edit_mode) ? "ADD TO QUEUE" : "SAVE CHANGES"}</>)} />
+                  }} disabled={downloading || (queue.some((q) => !isEmpty(data?.data) && q.data.id == data?.data?.id) && !edit_mode)}>
+                    <IconAndText icon={(edit_mode) ? faFloppyDisk : faListCheck} text={(<>&nbsp;{(!edit_mode) ? "ADD TO QUEUE" : "SAVE CHANGES"}</>)} />
                   </Button>
-                ) : ""}
-                {(queue.length > 0) ? (
-                  <div className="w-full">
-                    <Button variant="contained" color="secondary" onClick={() => setQueueOpen(true)}>
-                      <IconAndText icon={faListCheck} text={`Queue`} />
-                    </Button>
-                  </div>
                 ) : ""}
               </div>
               <div className="flex flex-col gap-4 mt-6">
@@ -122,7 +133,7 @@ export default function PanelSection() {
                     switches: {
                       video: checked
                     }
-                  })} icon={faVideo} label="Download video" />
+                  })} disabled={downloading} icon={faVideo} label="Download video" />
                   {(data?.switches?.video && (!data?.switches?.audio || !data?.switches?.merge)) ? (() => {
                     if (data?.data && data?.data?.format) return "";
 

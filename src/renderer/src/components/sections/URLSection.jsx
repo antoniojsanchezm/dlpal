@@ -6,7 +6,7 @@ import { faDownload, faLink, faListCheck, faRepeat } from "@fortawesome/free-sol
 import isEmpty from "is-empty";
 
 export default function URLSection() {
-  const { data_fetch, dataFetchDispatch, downloading, queue, data, dataDispatch } = useContext(DLPalContext);
+  const { data_fetch, dataFetchDispatch, downloading, queue, data, dataDispatch, setQueueOpen } = useContext(DLPalContext);
 
   const [first_fetch, setFirstFetch] = useState(false);
 
@@ -57,7 +57,7 @@ export default function URLSection() {
               });
             }
           });
-        }} disabled={downloading || (first_fetch && isEmpty(data?.data))}>
+        }} disabled={downloading || (first_fetch && !isEmpty(data?.data))}>
           <IconAndText icon={faDownload} text="Fetch" />
         </Button>
       ) : ""}
@@ -76,6 +76,13 @@ export default function URLSection() {
             <IconAndText icon={faRepeat} text="Reset" />
           </Button>
         </>
+      ) : ""}
+      {(queue.length > 0) ? (
+        <div className={(data_fetch.url.error) ? "mb-6" : ""}>
+          <Button variant="contained" color="secondary" onClick={() => setQueueOpen(true)}>
+            <IconAndText icon={faListCheck} text={`Queue`} />
+          </Button>
+        </div>
       ) : ""}
     </div>
   );

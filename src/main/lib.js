@@ -143,17 +143,15 @@ export function promisesAtOnce(promises) {
 }
 
 class Download {
-  constructor({ data: { id: video_id }, download: { video_format, audio_format, save_path, title, merge, keep_files, video_to_mp4, audio_to_mp3 } }, url, store, communicate) {
-    this.video_id = video_id;
-    if (video_format) this.video_format = video_format;
-    if (audio_format) this.audio_format = audio_format;
-    this.save_path = save_path;
-    this.title = title;
-    this.merge = merge;
-    this.keep_files = keep_files;
-    if (video_to_mp4) this.video_to_mp4 = video_to_mp4;
-    if (audio_to_mp3) this.audio_to_mp3 = audio_to_mp3;
-    this.url = url;
+  constructor(element, store, communicate) {
+    this.switches = element.switches;
+    this.data = element.data;
+    this.formats = element.formats;
+    
+    this.url = `https://youtube.com/watch?v=${this.data.id}`;
+    this.save_path = element.options.save_path;
+    this.title = this.data.title.replace(/[&\/\\#,+()$~%."":*?<>{}\|]/g, "");
+
     this.store = store;
     this.communicate = communicate;
   }
@@ -177,7 +175,7 @@ class Download {
    */
 
   getFormat(type, id) {
-    const stored = this.store.get(this.video_id);
+    const stored = this.store.get(this.data.id);
 
     return stored.formats[type].find((f) => f.id == id);
   }
@@ -205,7 +203,7 @@ class Download {
 
     let prefix = undefined;
     
-    if ((this.options.both && !this.options.merge) || this.audio_to_mp3 || this.video_to_mp4) prefix = type.toUpperCase();
+    if ((this.options.both && !this.switches.merge) || this.switches.audio_to_mp3 || this.switches.video_to_mp4) prefix = type.toUpperCase();
 
     const file_path = this.makePath(stored_format.container, type.toUpperCase(), prefix);
 
@@ -222,7 +220,7 @@ class Download {
    */
 
   setProgress(progress) {
-    this.communicate("download_progress", this.video_id, progress);
+    this.communicate("download_progress", this.data.id, progress);
   }
 
   /**
@@ -284,7 +282,7 @@ class Download {
    */
 
   downloadAudio() {
-    return this.makeAction("audio", this.audio_format, "warning", "Downloading");
+    return this.makeAction("audio", this.formats.audio, "warning", "Downloading");
   }
 
   /**
@@ -293,7 +291,7 @@ class Download {
    */
 
   downloadVideo() {
-    return this.makeAction("video", this.video_format, "primary", "Downloading");
+    return this.makeAction("video", this.formats.video, "primary", "Downloading");
   }
 
   /**
@@ -394,8 +392,8 @@ class Download {
 
       if (this.options.only_video) {
         this.downloadVideo().then((path) => {
-          if (this.video_to_mp4) {
-            const vformat = this.getFormat("video", this.video_format);
+          if (this.switches.video_to_mp4) {
+            const vformat = this.getFormat("video", this.formats.video);
 
             this.convertFileTo(path, vformat, "mp4").then((new_path) => {
               finishOperation(new_path);
@@ -406,8 +404,8 @@ class Download {
         });
       } else if (this.options.only_audio) {
         this.downloadAudio().then((path) => {
-          if (this.audio_to_mp3) {
-            const aformat = this.getFormat("audio", this.audio_format);
+          if (this.switches.audio_to_mp3) {
+            const aformat = this.getFormat("audio", this.formats.audio);
 
             this.convertFileTo(path, aformat, "mp3").then((new_path) => {
               finishOperation(new_path);
@@ -419,8 +417,8 @@ class Download {
       } else if (this.options.both) {
         this.downloadVideo().then((vpath) => {
           this.downloadAudio().then((apath) => {
-            if (this.merge) {
-              const vformat = this.getFormat("video", this.video_format);
+            if (this.switches.merge) {
+              const vformat = this.getFormat("video", this.formats.video);
 
               this.mergeVideoAndAudio(vpath, apath, vformat).then((mpath) => {
                 finishOperation(mpath);
@@ -428,14 +426,14 @@ class Download {
             } else {
               const promises = [];
 
-              if (this.audio_to_mp3) {
-                const aformat = this.getFormat("audio", this.audio_format);
+              if (this.switches.audio_to_mp3) {
+                const aformat = this.getFormat("audio", this.formats.audio);
 
-                if (vformat.container != "mp3") promises.push(() => this.convertFileTo(apath, aformat, "mp3"));
+                if (aformat.container != "mp3") promises.push(() => this.convertFileTo(apath, aformat, "mp3"));
               }
 
-              if (this.video_to_mp4) {
-                const vformat = this.getFormat("video", this.video_format);
+              if (this.switches.video_to_mp4) {
+                const vformat = this.getFormat("video", this.formats.video);
 
                 if (vformat.container != "mp4") promises.push(() => this.convertFileTo(vpath, vformat, "mp4"));
               }
@@ -455,8 +453,8 @@ class Download {
    */
 
   get options() {
-    const download_video = Boolean(this.video_format);
-    const download_audio = Boolean(this.audio_format);
+    const download_video = this.switches.video;
+    const download_audio = this.switches.audio;
 
     const only_video = download_video && !download_audio;
     const only_audio = download_audio && !download_video;
@@ -473,28 +471,26 @@ class Download {
 }
 
 /**
- * Begins the download of a single file
- * @param {object} data Download data
+ * Begins the download of the queue
+ * @param {array} queue Download queue
  * @param {Map} store Map where the temp data is stored
- * @param {function} sender Sender function to communicate between backend -> frontend
- * @returns Promise, never resolving
+ * @param {function} communicate Sender function to communicate between backend -> frontend
+ * @returns Promise, resolving at the end of the queue
  */
 
-export function beginDownload(data, store, communicate) {
+export function beginDownload(queue, store, communicate) {
   return new Promise((resolve, reject) => {
     try {
       const promises = [];
     
-      data.forEach((video) => {
-        const url = `https://youtube.com/watch?v=${video.id}`;
-
-        const download = new Download(video, url, store, communicate);
+      queue.forEach((element) => {
+        const download = new Download(element, store, communicate);
 
         promises.push(() => download.download());
       });
 
       promisesAtOnce(promises).then(() => {
-        communicate("finish_queue", data.length);
+        communicate("finish_queue", queue.length);
 
         resolve();
       });

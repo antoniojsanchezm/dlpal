@@ -5,20 +5,22 @@ import Credits from "./components/Credits";
 import QueueDialog from "./components/dialogs/QueueDialog";
 import URLSection from "./components/sections/URLSection";
 import PanelSection from "./components/sections/PanelSection";
+import { useContext } from "react";
+import { DLPalContext } from "./contexts/DLPalContext";
 
 function App() {
-  const popToast = () => {
-    if (!queue_open) toast(SuccessToast, {
-      position: "bottom-right",
-      autoClose: 5000,
-      hideProgressBar: true,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "dark"
-    });
-  };
+  const { show_toast, queue_open } = useContext(DLPalContext);
+
+  if (show_toast && !queue_open) toast(SuccessToast, {
+    position: "bottom-right",
+    autoClose: 5000,
+    hideProgressBar: true,
+    closeOnClick: true,
+    pauseOnHover: true,
+    draggable: true,
+    progress: undefined,
+    theme: "dark"
+  });
 
   return (
     <div>

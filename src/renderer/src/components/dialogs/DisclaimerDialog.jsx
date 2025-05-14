@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useContext } from "react";
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from "@mui/material";
 import DisclaimerAppName from "../DisclaimerAppName";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faExclamationTriangle, faTimes } from "@fortawesome/free-solid-svg-icons";
 import IconAndText from "../IconAndText";
+import { DLPalContext } from "../../contexts/DLPalContext";
 
 export default function DisclaimerDialog() {
-  const [disclaimer_open, setDisclaimerOpen] = useState(false);
+  const { disclaimer_open, setDisclaimerOpen } = useContext(DLPalContext);
   
   return (
     <Dialog open={disclaimer_open} onClose={() => setDisclaimerOpen(false)}>

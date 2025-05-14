@@ -34,7 +34,7 @@ function createWindow() {
   return main_window
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.electron");
 
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window));
