@@ -9,7 +9,7 @@ import { useContext } from "react";
 import { DLPalContext } from "./contexts/DLPalContext";
 
 function App() {
-  const { show_toast, queue_open } = useContext(DLPalContext);
+  const { show_toast, queue_open, setQueueOpen } = useContext(DLPalContext);
 
   if (show_toast && !queue_open) toast(SuccessToast, {
     position: "bottom-right",
@@ -19,7 +19,8 @@ function App() {
     pauseOnHover: true,
     draggable: true,
     progress: undefined,
-    theme: "dark"
+    theme: "dark",
+    onClick: () => setQueueOpen(true)
   });
 
   return (

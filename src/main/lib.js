@@ -248,6 +248,10 @@ class Download {
         format
       }).pipe(handler).pipe(fs.createWriteStream(path)).on("finish", () => {
         resolve(path);
+      }).on("error", (e) => {
+        console.log(e);
+
+        resolve();
       });
     });
   }
@@ -321,7 +325,11 @@ class Download {
           value: p * 100
         });
       }, format.approxDurationMs))
-      .on("error", (e) => console.error(e))
+      .on("error", (e) => {
+        console.log(e);
+
+        resolve();
+      })
       .on("end", () => {
         fs.unlink(path, () => {
           resolve(new_path);
@@ -360,7 +368,11 @@ class Download {
           value: p * 100
         });
       }, vformat.approxDurationMs))
-      .on("error", (e) => console.error(e))
+      .on("error", (e) => {
+        console.log(e);
+
+        resolve();
+      })
       .on("end", () => {
         if (!this.keep_files) {
           fs.unlink(vpath, () => {
@@ -382,10 +394,19 @@ class Download {
   download() {
     return new Promise((resolve) => {
       const finishOperation = (path) => {
-        this.setProgress({
-          completed: true,
-          saved_at: path
-        });
+        if (!path) {
+          this.setProgress({
+            value: undefined,
+            action: undefined,
+            completed: undefined,
+            saved_at: undefined
+          });
+        } else {
+          this.setProgress({
+            completed: true,
+            saved_at: path
+          });
+        }
 
         resolve();
       };
