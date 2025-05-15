@@ -2,11 +2,11 @@ import { Button, TextField } from "@mui/material";
 import { useContext, useState } from "react";
 import { DLPalContext, videoDataReducerTypes, dataFetchTypes } from "../../contexts/DLPalContext";
 import IconAndText from "../IconAndText";
-import { faDownload, faLink, faListCheck, faRepeat } from "@fortawesome/free-solid-svg-icons";
+import { faDownload, faLink, faListCheck, faPlus, faRepeat } from "@fortawesome/free-solid-svg-icons";
 import isEmpty from "is-empty";
 
 export default function URLSection() {
-  const { data_fetch, dataFetchDispatch, downloading, queue, data, dataDispatch, setQueueOpen } = useContext(DLPalContext);
+  const { data_fetch, dataFetchDispatch, downloading, queue, data, dataDispatch, setQueueOpen, edit_mode } = useContext(DLPalContext);
 
   const [first_fetch, setFirstFetch] = useState(false);
 
@@ -16,7 +16,7 @@ export default function URLSection() {
         type: dataFetchTypes.SET_URL,
         input: e.target.value
       })} disabled={downloading || !isEmpty(data?.data)} />
-      {(!data_fetch.url.error) ? (
+      {(!data_fetch.url.error && data_fetch.url.input?.length > 1) ? (
         <Button variant="contained" loading={data_fetch.loading} onClick={() => {
           dataFetchDispatch({
             type: dataFetchTypes.ON_LOADING
@@ -63,7 +63,7 @@ export default function URLSection() {
       ) : ""}
       {(!isEmpty(data?.data)) ? (
         <>
-          <Button variant="contained" color="error" onClick={async () => {
+          <Button variant="contained" color={(queue.length > 0) ? "success" : "error"} onClick={async () => {
             dataFetchDispatch({
               type: dataFetchTypes.SET_URL,
               input: ""
@@ -72,8 +72,8 @@ export default function URLSection() {
             dataDispatch({
               type: videoDataReducerTypes.RESET_DATA
             });
-          }} disabled={downloading}>
-            <IconAndText icon={faRepeat} text="Reset" />
+          }} disabled={edit_mode || downloading}>
+            <IconAndText icon={(queue.length > 0) ? faPlus : faRepeat} text={(queue.length > 0) ? "Add" : "Reset"} />
           </Button>
         </>
       ) : ""}

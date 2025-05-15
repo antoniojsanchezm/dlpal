@@ -17,6 +17,10 @@ You need to go to the [releases page](https://github.com/anventec/dlpal/releases
 ### Download queue
 <img src="./readme/screenshots/queue.png" />
 
+## Troubleshooting
+
+If you try to download a file and buttons are unabled to be pressed, try selecting different formats the next time. This is because YouTube doesn't let people download randomly and the app can't handle this kind of issue.
+
 ## dlpal works for:
 
 - Long videos [like this](https://www.youtube.com/watch?v=dQw4w9WgXcQ)

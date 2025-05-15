@@ -259,8 +259,8 @@ export default function DLPalContextProvider({ children }) {
     loading: false,
     url: {
       input: "",
-      error: true,
-      helperText: dataFetchErrors.EMPTY_URL
+      error: false,
+      helperText: false
     }
   });
 
@@ -291,10 +291,9 @@ export default function DLPalContextProvider({ children }) {
       });
 
       window.api.listenToMain("finish_queue", (downloads) => {
+        setDownloading(false);
         setShowToast(true);
         setTimeout(() => setShowToast(false), 5 * 1000);
-
-        setDownloading(false);
       });
 
       setFirstRenderMade(true);

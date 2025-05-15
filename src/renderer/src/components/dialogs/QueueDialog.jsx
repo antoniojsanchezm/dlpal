@@ -3,7 +3,7 @@ import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import IconAndText from "../IconAndText";
 import { DLPalContext, progress_colors, queueDispatchTypes, videoDataReducerTypes } from "../../contexts/DLPalContext";
-import { faCheckCircle, faClock, faFileDownload, faList, faListCheck, faPencil, faRepeat, faTimes, faTrash, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
+import { faCheckCircle, faClock, faFileDownload, faHome, faList, faListCheck, faPencil, faRepeat, faTrash, faVideo, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
 import truncate from "truncate";
 import { omit } from "lodash";
 
@@ -132,7 +132,7 @@ export default function QueueDialog() {
             setDownloading(true);
             window.api.beginDownload(queue.filter((q) => !(q.progress && q.progress.completed)).map((q) => omit(q, ["progress", "labels"])));
           }} disabled={downloading}><IconAndText icon={faFileDownload} text="Begin download" /></Button>
-          <Button onClick={() => setQueueOpen(false)}><IconAndText icon={faTimes} text="Close" /></Button>
+          <Button onClick={() => setQueueOpen(false)}><IconAndText icon={faHome} text="Return" /></Button>
       </DialogActions>
   </Dialog>
   );
