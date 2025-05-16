@@ -15,7 +15,7 @@ export default function URLSection() {
       <TextField className="w-3/5" size="small" label={<IconAndText icon={faLink} text="Video URL" />} variant="outlined" error={data_fetch.url.error} helperText={data_fetch.url.helperText} value={data_fetch.url.input} onChange={(e) => dataFetchDispatch({
         type: dataFetchTypes.SET_URL,
         input: e.target.value
-      })} disabled={downloading || !isEmpty(data?.data)} />
+      })} disabled={downloading || !isEmpty(data?.data) || data_fetch.loading} />
       {(!data_fetch.url.error && data_fetch.url.input?.length > 1) ? (
         <Button variant="contained" loading={data_fetch.loading} onClick={() => {
           dataFetchDispatch({

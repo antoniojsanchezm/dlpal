@@ -10,6 +10,8 @@ import { omit } from "lodash";
 export default function QueueDialog() {
   const { queue_open, setQueueOpen, queue, queueDispatch, downloading, setDownloading, edit_mode, setEditMode, dataDispatch } = useContext(DLPalContext);
 
+  const pending_videos = queue.filter((q) => !(q.progress && q.progress.completed));
+
   return (
     <Dialog fullScreen open={queue_open} onClose={() => setQueueOpen(false)}>
       <DialogTitle className="bg-[#020617]">
@@ -127,11 +129,11 @@ export default function QueueDialog() {
             queueDispatch({
               type: queueDispatchTypes.CLEAR
             });
-          }} disabled={downloading}><IconAndText icon={faRepeat} text="Clear queue" /></Button>
+          }} disabled={downloading || queue.length < 1}><IconAndText icon={faRepeat} text="Clear queue" /></Button>
           <Button color="success" onClick={() => {
             setDownloading(true);
-            window.api.beginDownload(queue.filter((q) => !(q.progress && q.progress.completed)).map((q) => omit(q, ["progress", "labels"])));
-          }} disabled={downloading}><IconAndText icon={faFileDownload} text="Begin download" /></Button>
+            window.api.beginDownload(pending_videos.map((q) => omit(q, ["progress", "labels"])));
+          }} disabled={downloading || pending_videos.length < 1}><IconAndText icon={faFileDownload} text="Begin download" /></Button>
           <Button onClick={() => setQueueOpen(false)}><IconAndText icon={faHome} text="Return" /></Button>
       </DialogActions>
   </Dialog>
