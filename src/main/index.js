@@ -1,8 +1,12 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron';
 import { join } from 'path';
-import { electronApp, optimizer, is } from '@electron-toolkit/utils';
+import { electronApp, optimizer, is, } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { beginDownload, fetchVideoData } from './lib';
+import { autoUpdater } from 'electron-updater';
+
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
 
 function createWindow() {
   const main_window = new BrowserWindow({
@@ -80,6 +84,34 @@ app.whenReady().then(async () => {
   app.on("activate", function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  // Automatic updates
+
+  if (!is.dev) {
+    autoUpdater.checkForUpdates();
+
+    autoUpdater.on("update-available", (info) => {
+      dialog.showMessageBox({
+        type: "info",
+        title: `Update available (${app.getVersion()} -> ${info.version})`,
+        message: `A new version (${info.version}) of the app is available. Do you want to update now?`,
+        buttons: ["Yes, update", "No, keep this version"],
+      }).then(async (res) => {
+        if (res.response === 0) await autoUpdater.downloadUpdate();
+      });
+    });
+
+    autoUpdater.on("update-downloaded", (e) => {
+      dialog.showMessageBox({
+        type: "info",
+        title: `Update downloaded successfully!`,
+        message: `The update for the new version has been downloaded. Do you want to update now? This will close the app and your downloads will be canceled.`,
+        buttons: ["Yes, close and update", "No, install on next launch"],
+      }).then((res) => {
+        if (res.response === 0) autoUpdater.quitAndInstall();
+      });
+    });
+  }
 });
 
 app.on("window-all-closed", () => {
